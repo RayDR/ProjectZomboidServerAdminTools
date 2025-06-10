@@ -1,0 +1,105 @@
+/* global.css - Estilo general para Project Zomboid WebAdmin */
+
+:root {
+  --bg-color: #1a1a1a;
+  --panel-color: #2a2a2a;
+  --accent-color: #61dafb;
+  --text-color: #e0e0e0;
+  --green: #00ff88;
+  --red: #ff7777;
+  --mono-bg: #111;
+  --mono-text: #0f0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.pz-container {
+  padding: 1rem;
+  max-width: 1200px;
+  margin: auto;
+}
+
+.pz-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--panel-color);
+  padding: 1rem;
+  border-bottom: 2px solid var(--accent-color);
+}
+
+.pz-header h1 {
+  margin: 0;
+  color: var(--accent-color);
+}
+
+button {
+  background-color: var(--accent-color);
+  border: none;
+  padding: 0.5rem 1rem;
+  color: #000;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 0.5rem;
+}
+
+button:hover {
+  background-color: #4ab0d9;
+}
+
+textarea {
+  font-family: monospace;
+  background-color: var(--mono-bg);
+  color: var(--mono-text);
+  border: 1px solid #333;
+  padding: 10px;
+  width: 100%;
+}
+
+pre {
+  font-family: monospace;
+  background-color: #222;
+  color: var(--text-color);
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.pz-pre.green {
+  color: var(--green);
+  background: #002b00;
+}
+
+.pz-pre.red {
+  color: var(--red);
+  background: #2b0000;
+}
+
+.pz-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .pz-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pz-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  button {
+    width: 100%;
+  }
+}
