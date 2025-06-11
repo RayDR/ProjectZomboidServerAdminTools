@@ -18,6 +18,7 @@ import { config } from './config/env';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import authRoutes from './routes/auth';
 import healthRouter from './routes/health';
 import statusRouter from './routes/status';
 import logRoutes from './routes/logs';
@@ -30,6 +31,7 @@ const PORT = config.port;
 app.use(cors());
 app.use(express.json());
 
+app.use('/api', authRoutes);
 app.use('/api/health', healthRouter);
 app.use('/api/status', statusRouter);
 app.use('/api/logs', logRoutes);

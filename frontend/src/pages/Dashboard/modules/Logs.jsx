@@ -3,25 +3,24 @@ import CollapsibleGroup from '../../../components/CollapsibleGroup';
 
 export default function Logs({ token }) {
   const [logTab, setLogTab] = useState('server');
-  const [logs, setLogs] = useState('');
-  const [maintenance, setMaintenance] = useState('');
-  const [errors, setErrors] = useState('');
+  const [logs, setLogs] = useState({ server: '', maintenance: '', errors: '' });
 
   useEffect(() => {
-    fetch('/api/logs/server?lines=50', { headers: { Authorization: `Bearer ${token}` }})
-      .then(r => r.text()).then(setLogs);
-    fetch('/api/logs/maintenance?lines=50', { headers: { Authorization: `Bearer ${token}` }})
-      .then(r => r.text()).then(setMaintenance);
-    fetch('/api/errors?lines=50', { headers: { Authorization: `Bearer ${token}` }})
-      .then(r => r.text()).then(setErrors);
+    const fetchLog = (type) =>
+      fetch(`/api/logs?type=${type}&lines=50`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(r => r.text());
+
+    Promise.all(['main', 'maintenance'].map(fetchLog)).then(([main, maintenance]) =>
+      setLogs({
+        server: main,
+        maintenance,
+        errors: maintenance // reutiliza maintenance para mostrar "errors"
+      })
+    );
   }, [token]);
 
-  const renderLog = () => {
-    if (logTab === 'server') return logs;
-    if (logTab === 'maintenance') return maintenance;
-    if (logTab === 'errors') return errors;
-    return '';
-  };
+  const renderLog = () => logs[logTab] || '';
 
   return (
     <CollapsibleGroup title="📄 Logs del Servidor">
@@ -46,5 +45,5 @@ export default function Logs({ token }) {
         {renderLog()}
       </pre>
     </CollapsibleGroup>
-  )
+  );
 }

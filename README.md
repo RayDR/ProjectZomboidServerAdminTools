@@ -49,7 +49,7 @@ npm install
 3. **Setup SQLite authentication (optional)**
 
 ```bash
-sqlite3 pzadmin.db < setup.sql
+sqlite3 pzadmin.db < pzwebadmin.sql
 # This creates tables for users, sessions, and audit logs
 # You can manually insert users using bcrypt-hashed passwords
 ```
@@ -138,7 +138,7 @@ npm install
 3. **Base de datos SQLite (opcional)**
 
 ```bash
-sqlite3 pzadmin.db < setup.sql
+sqlite3 pzadmin.db < pzwebadmin.sql
 # Esto crea usuarios, sesiones y registros de auditoría
 ```
 

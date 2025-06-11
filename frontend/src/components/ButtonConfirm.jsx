@@ -5,5 +5,18 @@ export default function ButtonConfirm({ onConfirm, children }) {
     if (confirm('Are you sure?')) onConfirm();
   };
 
-  return <button onClick={handleClick}>{children}</button>;
+  return (
+    <button
+      onClick={handleClick}
+      style={{
+        background: '#222',
+        color: '#fff',
+        padding: '8px 16px',
+        border: '1px solid #444',
+        cursor: 'pointer'
+      }}
+    >
+      {children}
+    </button>
+  );
 }

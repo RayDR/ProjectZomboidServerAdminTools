@@ -6,14 +6,19 @@ export default function LogViewer({ token }) {
   const [lines, setLines] = useState(100);
 
   const fetchLog = (type) =>
-    fetch(\`/api/logs/\${type}?lines=\${lines}\`, {
-      headers: { Authorization: \`Bearer \${token}\` }
+    fetch(`/api/logs?type=${type}&lines=${lines}`, {
+      headers: { Authorization: `Bearer ${token}` }
     }).then(res => res.text());
 
   useEffect(() => {
-    Promise.all(['server', 'maintenance', 'errors'].map(fetchLog))
-      .then(([server, maintenance, errors]) => setLogs({ server, maintenance, errors }));
-  }, [lines]);
+    Promise.all(['main', 'maintenance'].map(fetchLog)).then(([main, maintenance]) =>
+      setLogs({
+        server: main,
+        maintenance,
+        errors: maintenance // se reutiliza
+      })
+    );
+  }, [lines, token]);
 
   return (
     <div>
@@ -27,7 +32,7 @@ export default function LogViewer({ token }) {
           type="number"
           min="10"
           value={lines}
-          onChange={(e) => setLines(e.target.value)}
+          onChange={(e) => setLines(Number(e.target.value))}
           style={{ marginLeft: 10, width: 80 }}
         />
       </div>

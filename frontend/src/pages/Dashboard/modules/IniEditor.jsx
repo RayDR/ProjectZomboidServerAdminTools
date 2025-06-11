@@ -6,13 +6,14 @@ export default function IniEditor({ token }) {
   const [ini, setIni] = useState('');
 
   useEffect(() => {
-    fetch('/api/config/ini', { headers: { Authorization: `Bearer ${token}` }})
-      .then(r => r.text()).then(setIni);
+    fetch('/api/config/ini', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.text())
+      .then(setIni);
   }, [token]);
 
   const saveIni = async () => {
     const res = await fetch('/api/config/ini', {
-      method: 'POST',
+      method: 'PUT', // ← corregido
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -41,5 +42,5 @@ export default function IniEditor({ token }) {
       <br />
       <ButtonConfirm onConfirm={saveIni}>💾 Guardar INI</ButtonConfirm>
     </CollapsibleGroup>
-  )
+  );
 }
