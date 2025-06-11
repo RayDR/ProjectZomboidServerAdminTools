@@ -1,9 +1,10 @@
 {
   "pz_name": "myserver",
-  "pz_dir": "/opt/pzserver",
+  "pz_dir": "/opt/server",
   "pz_service": "pzomboid",
-  "pz_log_path": "/opt/pzserver/logs/server.log",
-  "pz_maintenance_log_path": "/opt/pzserver/logs/maintenance.log",
+  "pz_env": "/opt/server/scripts/pzenv",
+  "pz_log_path": "/opt/server/logs/server.log",
+  "pz_maintenance_log_path": "/opt/server/logs/maintenance.log",
   "pz_ini_path": "/home/USERNAME/Zomboid/Server",
   "pz_save_path": "/home/USERNAME/Zomboid/Saves/Multiplayer",
   "pz_admin_user": "USERNAME",

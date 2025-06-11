@@ -23,6 +23,7 @@ PZ_NAME={config['pz_name']}
 PZ_DIR={config['pz_dir']}
 PZ_ADMIN_USER={config['pz_admin_user']}
 PZ_SERVICE={config['pz_service']}
+PZ_ENV_SCRIPT={config['pz_env']}
 PZ_LOG_PATH={config['pz_log_path']}
 PZ_MAINTENANCE_LOG_PATH={config['pz_maintenance_log_path']}
 PZ_INI_PATH={config['pz_ini_path']}

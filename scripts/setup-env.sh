@@ -20,6 +20,7 @@ fi
 PZ_NAME=$(jq -r .pz_name "$CONFIG_FILE")
 PZ_DIR=$(jq -r .pz_dir "$CONFIG_FILE")
 PZ_SERVICE=$(jq -r .pz_service "$CONFIG_FILE")
+PZ_ENV_SCRIPT=$(jq -r .pz_env "$CONFIG_FILE")
 PZ_LOG=$(jq -r .pz_log_path "$CONFIG_FILE")
 PZ_MAINTENANCE_LOG=$(jq -r .pz_maintenance_log_path "$CONFIG_FILE")
 PZ_INI=$(jq -r .pz_ini_path "$CONFIG_FILE")
@@ -40,6 +41,7 @@ PZ_NAME=$PZ_NAME
 PZ_DIR=$PZ_DIR
 PZ_ADMIN_USER=$PZ_ADMIN
 PZ_SERVICE=$PZ_SERVICE
+PZ_ENV_SCRIPT=$PZ_ENV_SCRIPT
 PZ_LOG_PATH=$PZ_LOG
 PZ_MAINTENANCE_LOG_PATH=$PZ_MAINTENANCE_LOG
 PZ_INI_PATH=$PZ_INI
