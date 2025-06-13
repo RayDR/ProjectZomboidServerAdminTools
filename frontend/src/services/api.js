@@ -1,40 +1,71 @@
-// Devuelve los headers de autorización si el token está presente en localStorage
+// Return the Authorization headers if a token exists in localStorage
 export function authHeaders() {
   const token = localStorage.getItem('token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-// ⚠️ Desactivado temporalmente: el backend aún no implementa /api/players
+/**
+ * Get list of connected players via RCON
+ * @returns {Promise<string>} - The list of connected players
+ */
 export async function getPlayers() {
-  return 'Not implemented';
+  const res = await fetch('/api/players', {
+    headers: authHeaders()
+  });
+
+  if (!res.ok) {
+    const { error } = await res.json();
+    throw new Error(error || 'Failed to fetch players');
+  }
+
+  const data = await res.json();
+  return data.players;
 }
 
-// Ajustado para usar query ?type=main o ?type=maintenance
+/**
+ * Get server logs from the backend (main or maintenance)
+ * @param {string} type - Log type ('main' or 'maintenance')
+ * @param {number} lines - Number of lines to fetch
+ * @returns {Promise<string>} - The raw log content
+ */
 export async function getLogs(type = 'main', lines = 50) {
-  const logType = type === 'maintenance' ? 'maintenance' : 'main';
+  const logType = ['main', 'maintenance', 'errors'].includes(type) ? type : 'main';
   const res = await fetch(`/api/logs?type=${logType}&lines=${lines}`, {
     headers: authHeaders()
   });
-  return res.text();
+  const data = await res.json();
+  if (!data?.log) throw new Error('Invalid log response');
+  return data.log;
 }
 
-// Usa el tipo de log "maintenance" para obtener errores (por ahora reusa logs.service)
+/**
+ * Get error logs from the server
+ * @param {number} lines - Number of lines to fetch
+ * @returns {Promise<string>} - The log output (same as main)
+ */
 export async function getErrors(lines = 50) {
-  const res = await fetch(`/api/logs?type=maintenance&lines=${lines}`, {
-    headers: authHeaders()
-  });
-  return res.text();
+  return getLogs('errors', lines);
 }
 
-// Obtiene el archivo INI actual del servidor
+/**
+ * Fetch the current Project Zomboid INI file content
+ * @returns {Promise<string>} - Raw INI file content
+ */
 export async function getIni() {
   const res = await fetch('/api/config/ini', {
     headers: authHeaders()
   });
-  return res.text();
+
+  const data = await res.json();
+  if (!data?.content) throw new Error('Invalid INI response');
+  return data.content;
 }
 
-// Guarda el contenido modificado del INI (usa método PUT, no POST)
+/**
+ * Save updated INI content back to the server
+ * @param {string} content - New INI file content
+ * @returns {Promise<string>} - Response message from the server
+ */
 export async function saveIni(content) {
   const res = await fetch('/api/config/ini', {
     method: 'PUT',
@@ -44,22 +75,57 @@ export async function saveIni(content) {
     },
     body: JSON.stringify({ content })
   });
-  return res.text();
+
+  const data = await res.json();
+  return data?.message || 'INI updated.';
 }
 
-// Ejecuta un comando en el servidor
-export async function runCommand(cmd) {
-  const res = await fetch(`/api/command/${cmd}`, {
+/**
+ * Executes a backend command (e.g. restart, backup, update).
+ * @param {string} action - The command action name
+ * @returns {Promise<string>} - Command output message
+ */
+export async function runCommand(action) {
+  const res = await fetch('/api/commands', {
     method: 'POST',
-    headers: authHeaders()
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ action })
   });
-  return res.text();
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to execute command.');
+  return data?.message || 'Command executed.';
 }
 
-// Consulta el estado actual del servidor (memoria, procesos, etc.)
+/**
+ * Get full server status: memory, PZ service, database, etc.
+ * @returns {Promise<object>} - JSON object with server diagnostics
+ */
 export async function getServerStatus() {
   const res = await fetch('/api/status', {
     headers: authHeaders()
   });
-  return res.text();
+
+  const data = await res.json();
+  if (!data?.status) throw new Error('Invalid status response');
+  return data;
+}
+
+/**
+ * Sends a broadcast message to the server
+ * @returns {Promise<string>} - Response message from the server
+ */
+export async function sendBroadcast(message) {
+  const res = await fetch('/api/messages', {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message }),
+  });
+  return res.json();
 }

@@ -20,13 +20,28 @@ import { config } from '../config/env';
  * @param type 'main' or 'maintenance'
  * @param lines number of lines to read
  */
-export const readLogFile = (type: 'main' | 'maintenance', lines: number): Promise<string> => {
-  const logPath = type === 'maintenance' ? config.pzMaintenanceLogPath : config.pzLogPath;
+export const readLogFile = (
+  type: 'main' | 'maintenance' | 'errors',
+  lines: number
+): Promise<string> => {
+  let logPath = config.pzLogPath;
+
+  if (type === 'maintenance') {
+    logPath = config.pzMaintenanceLogPath;
+  }
+
+  const baseCommand = `tail -n ${lines} ${logPath}`;
+
+  // If it's an error log, filter with grep
+  const command = type === 'errors'
+    ? `${baseCommand} | grep -i error`
+    : baseCommand;
 
   return new Promise((resolve, reject) => {
-    exec(`tail -n ${lines} ${logPath}`, (err, stdout, stderr) => {
-      if (err) return reject(stderr || err.message);
-      resolve(stdout);
+    exec(command, (err, stdout, stderr) => {
+      if (err && !stdout) return reject(stderr || err.message);
+      resolve(stdout || '[No matching lines found]');
     });
   });
 };
+

@@ -12,6 +12,7 @@ export default function LoginForm({ onLogin }) {
     });
     if (res.ok) {
       const data = await res.json();
+      console.log('[LOGIN] Token recibido del backend:', data.token);
       localStorage.setItem('token', data.token);
       onLogin();
     } else {

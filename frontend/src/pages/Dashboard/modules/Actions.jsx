@@ -1,6 +1,7 @@
 import React from 'react';
 import CollapsibleGroup from '../../../components/CollapsibleGroup';
 import ButtonConfirm from '../../../components/ButtonConfirm';
+import { runCommand } from '../../../services/api';
 
 export default function Actions() {
   const actions = [
@@ -10,14 +11,13 @@ export default function Actions() {
   ];
 
   const handleAction = async (action) => {
-    const res = await fetch(`/api/commands/${action}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    const text = await res.text();
-    alert(text);
+    try {
+      const text = await runCommand(action);
+      alert(text);
+    } catch (err) {
+      console.error(`[ERROR] runCommand failed (${action}):`, err);
+      alert('Error ejecutando la acción');
+    }
   };
 
   return (

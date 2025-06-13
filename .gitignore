@@ -6,6 +6,9 @@ frontend/node_modules/
 backend/.env
 frontend/.env.local
 
+# DB
+backend/db/pzadmin.db
+
 # Logs
 logs/
 *.log

@@ -24,6 +24,8 @@ import statusRouter from './routes/status';
 import logRoutes from './routes/logs';
 import iniRoutes from './routes/ini';
 import commandRoutes from './routes/commands';
+import playerRoutes from './routes/players';
+import messageRoutes from './routes/messages';
 
 const app = express();
 const PORT = config.port;
@@ -37,6 +39,8 @@ app.use('/api/status', statusRouter);
 app.use('/api/logs', logRoutes);
 app.use('/api/config/ini', iniRoutes);
 app.use('/api/commands', commandRoutes);
+app.use('/api/players', playerRoutes);
+app.use('/api/messages', messageRoutes);
 
 const version = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8')).version;
 

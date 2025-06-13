@@ -8,6 +8,7 @@ import IniEditor from './modules/IniEditor';
 import Actions from './modules/Actions';
 import ServerStatus from './modules/ServerStatus';
 import Players from './modules/Players';
+import Broadcast from './modules/Broadcast';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -18,10 +19,17 @@ export default function Dashboard() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!localStorage.getItem('token')) {
+      window.location.href = '/';
+    }
+  }, []);
+
   return (
     <Layout>
       <ServerStatus />
       <Actions />
+      <Broadcast />
       <Players />
       <Logs />
       <IniEditor />

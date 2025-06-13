@@ -1,24 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import CollapsibleGroup from '../../../components/CollapsibleGroup';
+import { getLogs, getErrors } from '../../../services/api';
 
-export default function Logs({ token }) {
+export default function Logs() {
   const [logTab, setLogTab] = useState('server');
   const [logs, setLogs] = useState({ server: '', maintenance: '', errors: '' });
 
   useEffect(() => {
-    const fetchLog = (type) =>
-      fetch(`/api/logs?type=${type}&lines=50`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.text());
-
-    Promise.all(['main', 'maintenance'].map(fetchLog)).then(([main, maintenance]) =>
+    Promise.all([
+      getLogs('main'),
+      getLogs('maintenance'),
+      getErrors()
+    ]).then(([main, maintenance, errors]) => {
       setLogs({
         server: main,
         maintenance,
-        errors: maintenance // reutiliza maintenance para mostrar "errors"
-      })
-    );
-  }, [token]);
+        errors
+      });
+    });
+  }, []);
 
   const renderLog = () => logs[logTab] || '';
 
@@ -41,7 +41,7 @@ export default function Logs({ token }) {
           </button>
         ))}
       </div>
-      <pre style={{ background: '#111', color: '#aaffaa', padding: 10, maxHeight: '300px', overflow: 'auto' }}>
+      <pre style={{ background: '#111', color: '#aaffaa', padding: 10, maxHeight: '300px', overflow: 'auto', whiteSpace: 'pre-wrap' }}>
         {renderLog()}
       </pre>
     </CollapsibleGroup>

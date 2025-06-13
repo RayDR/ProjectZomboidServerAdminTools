@@ -1,4 +1,3 @@
-"use strict";
 /**
  * @license MIT
  * © 2025 DomoForge (https://domoforge.com)
@@ -9,12 +8,30 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isLogType = void 0;
-const isLogType = (value) => {
-    return ['main', 'maintenance'].includes(value);
-};
-exports.isLogType = isLogType;
+
+
+declare module 'rcon' {
+  import { EventEmitter } from 'events';
+
+  class Rcon extends EventEmitter {
+    constructor(
+      host: string,
+      port: number,
+      password: string,
+      options?: {
+        tcp?: boolean;
+        challenge?: boolean;
+        timeout?: number;
+      }
+    );
+
+    connect(): void;
+    disconnect(): void;
+    send(command: string): void;
+  }
+
+  export default Rcon;
+}

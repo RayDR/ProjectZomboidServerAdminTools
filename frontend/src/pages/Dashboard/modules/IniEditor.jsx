@@ -1,26 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import CollapsibleGroup from '../../../components/CollapsibleGroup';
 import ButtonConfirm from '../../../components/ButtonConfirm';
-
-export default function IniEditor({ token }) {
+import { getIni, saveIni } from '../../../services/api';
+export default function IniEditor() {
   const [ini, setIni] = useState('');
 
   useEffect(() => {
-    fetch('/api/config/ini', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.text())
-      .then(setIni);
-  }, [token]);
+    getIni()
+      .then(setIni)
+      .catch(err => {
+        console.error('[ERROR] INI Fetch failed:', err);
+        alert('Error loading INI file');
+      });
+  }, []);
 
-  const saveIni = async () => {
-    const res = await fetch('/api/config/ini', {
-      method: 'PUT', // ← corregido
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ content: ini })
-    });
-    alert(await res.text());
+  const handleSave = async () => {
+    try {
+      const result = await saveIni(ini);
+      alert(result);
+    } catch (err) {
+      console.error('[ERROR] INI Save failed:', err);
+      alert('Error saving INI file');
+    }
   };
 
   return (
@@ -40,7 +41,7 @@ export default function IniEditor({ token }) {
         }}
       />
       <br />
-      <ButtonConfirm onConfirm={saveIni}>💾 Guardar INI</ButtonConfirm>
+      <ButtonConfirm onConfirm={handleSave}>💾 Guardar INI</ButtonConfirm>
     </CollapsibleGroup>
   );
 }

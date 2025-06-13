@@ -3,28 +3,25 @@ import { getServerStatus } from '../services/api';
 
 export default function StatusBox() {
   const [status, setStatus] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     getServerStatus()
-      .then(res => {
-        try {
-          const parsed = JSON.parse(res);
-          setStatus(parsed);
-        } catch (e) {
-          setStatus({ error: 'Invalid response from server.' });
-        }
-      })
-      .catch(() => setStatus({ error: 'Connection failed.' }));
+      .then(setStatus)
+      .catch(() => setError('Connection failed.'));
   }, []);
 
-  if (!status) return <div className="pz-status">Cargando estado...</div>;
-
-  if (status.error)
+  if (error) {
     return (
       <div className="pz-status red">
-        <strong>Error:</strong> {status.error}
+        <strong>Error:</strong> {error}
       </div>
     );
+  }
+
+  if (!status) {
+    return <div className="pz-status">Cargando estado...</div>;
+  }
 
   const {
     server,
@@ -57,7 +54,7 @@ export default function StatusBox() {
         <strong>🗄 Servidor:</strong> {server}
       </div>
       <div>
-        <strong>🧬 Proceso:</strong> {zomboid}
+        <strong>🧬 Proceso:</strong> {zomboid || 'Desconocido'}
       </div>
       <div>
         <strong>📊 Memoria:</strong>{' '}
@@ -70,7 +67,7 @@ export default function StatusBox() {
         {db?.ok ? '✅ OK' : '❌ Error'}
       </div>
       <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: '#888' }}>
-        Última verificación: {new Date(checkedAt).toLocaleString()}
+        Última verificación: {checkedAt ? new Date(checkedAt).toLocaleString() : 'n/d'}
       </div>
     </div>
   );

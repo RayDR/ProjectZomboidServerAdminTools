@@ -8,31 +8,37 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
  */
 
+
 import { Request, Response } from 'express';
-import { runCommand } from '../services/commands.service';
+import { runRconCommand } from '../services/rcon.service';
 
 /**
- * Controller to execute a shell command based on the requested action.
- * Supported actions: restart, stop, start, update, backup, status.
+ * Handles the `/api/players` endpoint.
+ * Returns a list of currently connected players via RCON.
  */
-export const executeCommand = async (req: Request, res: Response) => {
-  const { action } = req.body;
-
-  if (!action) {
-    return res.status(400).json({ error: 'Missing action parameter' });
-  }
-
+export const getConnectedPlayers = async (_req: Request, res: Response) => {
   try {
-    const output = await runCommand(action);
-    res.json({ message: `Action '${action}' executed successfully.`, output });
+    const raw = await runRconCommand('players');
+    const players = parsePlayers(raw);
+    res.json({ players });
   } catch (err) {
     res.status(500).json({
-      error: `Failed to execute action '${action}'`,
-      details: err instanceof Error ? err.message : err,
+      error: 'Failed to retrieve player list.',
+      details: (err as Error).message,
     });
   }
+};
+
+/**
+ * Parses the raw RCON response to extract player names.
+ */
+const parsePlayers = (raw: string): string[] => {
+  return raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('There are no'));
 };

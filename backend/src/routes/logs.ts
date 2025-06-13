@@ -13,22 +13,29 @@
  */
 
 import { Router } from 'express';
-
 import { auth } from '../middleware/auth';
 import { readLogFile } from '../services/logs.service';
 
 const router = Router();
 
 router.get('/', auth, async (req, res) => {
+  const allowedTypes = ['main', 'maintenance', 'errors'] as const;
   const { type = 'main', lines = 100 } = req.query;
-  const logType = type === 'maintenance' ? 'maintenance' : 'main';
+
+  const logType = allowedTypes.includes(type as any)
+    ? (type as typeof allowedTypes[number])
+    : 'main';
 
   try {
     const log = await readLogFile(logType, Number(lines));
     res.json({ log });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to read log file', details: (err as Error).message });
+    res.status(500).json({
+      error: 'Failed to read log file',
+      details: (err as Error).message
+    });
   }
 });
 
 export default router;
+

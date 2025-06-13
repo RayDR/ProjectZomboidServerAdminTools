@@ -19,6 +19,7 @@
     "crypto": "^1.0.1",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "rcon": "^1.1.0",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

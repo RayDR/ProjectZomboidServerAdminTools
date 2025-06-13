@@ -17,8 +17,12 @@ import { AuthenticatedRequest } from '../types/auth.types';
 import { readLogFile } from '../services/logs.service';
 
 export const getLog = async (req: AuthenticatedRequest, res: Response) => {
+  const allowedTypes = ['main', 'maintenance', 'errors'] as const;
   const { type = 'main', lines = 100 } = req.query;
-  const logType = type === 'maintenance' ? 'maintenance' : 'main';
+
+  const logType = allowedTypes.includes(type as any)
+    ? (type as typeof allowedTypes[number])
+    : 'main';
 
   try {
     const data = await readLogFile(logType, Number(lines));
