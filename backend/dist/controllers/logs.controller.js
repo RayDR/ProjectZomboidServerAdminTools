@@ -18,12 +18,16 @@ const logs_service_1 = require("../services/logs.service");
 const logs_service_2 = require("../services/logs.service");
 const getLog = async (req, res) => {
     const allowedTypes = ['main', 'maintenance', 'errors'];
-    const { type = 'main', lines = 500 } = req.query;
+    const { type = 'main', lines = 500, instanceId } = req.query;
+    if (!instanceId) {
+        res.status(400).json({ success: false, error: 'Instance ID is required' });
+        return;
+    }
     const logType = allowedTypes.includes(type)
         ? type
         : 'main';
     try {
-        const content = await (0, logs_service_1.readLogFile)(logType, Number(lines));
+        const content = await (0, logs_service_1.readLogFile)(String(instanceId), logType, Number(lines));
         res.json({
             success: true,
             data: {
@@ -42,9 +46,14 @@ const getLog = async (req, res) => {
     }
 };
 exports.getLog = getLog;
-const getPlayersFromLogs = async (_req, res) => {
+const getPlayersFromLogs = async (req, res) => {
     try {
-        const players = await (0, logs_service_2.getRecentPlayersFromLog)();
+        const { instanceId } = req.query;
+        if (!instanceId) {
+            res.status(400).json({ error: 'Instance ID required' });
+            return;
+        }
+        const players = await (0, logs_service_2.getRecentPlayersFromLog)(String(instanceId));
         res.json({ players });
     }
     catch (error) {

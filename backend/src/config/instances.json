@@ -1,0 +1,38 @@
+{
+  "instances": [
+    {
+      "id": "current",
+      "name": "DesveladitaZ",
+      "description": "Servidor principal de Project Zomboid",
+      "version": "Current",
+      "serviceName": "pzomboid",
+      "pzDir": "/opt/pzserver",
+      "pzName": "pzdesveladitas",
+      "logPath": "/opt/pzserver/logs/server.log",
+      "maintenanceLogPath": "/opt/pzserver/logs/maintenance.log",
+      "iniPath": "/home/pzadmin/Zomboid/Server/pzdesveladitas.ini",
+      "savePath": "/home/pzadmin/Zomboid/Saves/Multiplayer/pzdesveladitas",
+      "db": "/home/pzadmin/Zomboid/Server/pzdesveladitas.db",
+      "rconPort": 27015,
+      "gamePort": 16261,
+      "isActive": true
+    },
+    {
+      "id": "new",
+      "name": "DesveladitaZ Reloaded",
+      "description": "Servidor Build 42 - Mundo nuevo",
+      "version": "Build 42.13.0",
+      "serviceName": "pzomboid-build42",
+      "pzDir": "/opt/pzserver-build42",
+      "pzName": "pzdesveladitas-build42",
+      "logPath": "/opt/pzserver-build42/logs/server.log",
+      "maintenanceLogPath": "/opt/pzserver-build42/logs/maintenance.log",
+      "iniPath": "/home/pzadmin/Zomboid/Server/pzdesveladitas-build42.ini",
+      "savePath": "/home/pzadmin/Zomboid/Saves/Multiplayer/pzdesveladitas-build42",
+      "db": "/home/pzadmin/Zomboid/db/pzdesveladitas-build42.db",
+      "rconPort": 27016,
+      "gamePort": 16262,
+      "isActive": false
+    }
+  ]
+}

@@ -20,9 +20,16 @@ import { runRconCommand } from '../services/rcon.service';
  * Handles the `/api/players` endpoint.
  * Returns a list of currently connected players via RCON.
  */
-export const getConnectedPlayers = async (_req: Request, res: Response) => {
+export const getConnectedPlayers = async (req: Request, res: Response) => {
+  const { instanceId } = req.query;
+
+  if (!instanceId) {
+    res.status(400).json({ error: 'Instance ID is required' });
+    return;
+  }
+
   try {
-    const raw = await runRconCommand('players');
+    const raw = await runRconCommand(String(instanceId), 'players');
     const players = parsePlayers(raw);
     res.json({ players });
   } catch (err) {

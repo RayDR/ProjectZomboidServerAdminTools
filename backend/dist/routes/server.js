@@ -49,6 +49,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const serverController = __importStar(require("../controllers/server.controller"));
 const serverLogsController = __importStar(require("../controllers/server-logs.controller"));
+const configService = __importStar(require("../services/config.service"));
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 /**
@@ -76,4 +77,9 @@ router.post('/backup', auth_1.auth, serverController.createBackupController);
 router.get('/backups', auth_1.auth, serverController.listBackupsController);
 // DELETE /api/server/backups/:filename - Delete a backup
 router.delete('/backups/:filename', auth_1.auth, serverController.deleteBackupController);
+// GET /api/server/config - Get server configuration
+router.get('/config', auth_1.auth, async (req, res) => {
+    const result = await configService.getServerConfig();
+    res.json(result);
+});
 exports.default = router;

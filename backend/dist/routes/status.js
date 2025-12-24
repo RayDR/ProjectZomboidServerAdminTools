@@ -33,14 +33,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
  */
 const express_1 = require("express");
-const child_process_1 = require("child_process");
 const os_1 = __importDefault(require("os"));
 const sqlite3_1 = __importDefault(require("sqlite3"));
-const env_1 = require("../config/env");
+const instances_service_1 = require("../services/instances.service");
 const router = (0, express_1.Router)();
-/**
- * Get system memory usage.
- */
 const checkMemory = () => {
     const total = os_1.default.totalmem();
     const free = os_1.default.freemem();
@@ -52,9 +48,6 @@ const checkMemory = () => {
         usagePercent: parseFloat(((used / total) * 100).toFixed(2)),
     };
 };
-/**
- * Check SQLite database connection and simple query.
- */
 const checkDatabase = () => {
     return new Promise((resolve) => {
         const db = new sqlite3_1.default.Database('./db/pzadmin.db', (err) => {
@@ -69,52 +62,18 @@ const checkDatabase = () => {
         });
     });
 };
-/**
- * Check if the Project Zomboid process is running.
- */
-const checkZomboidProcess = () => {
-    return new Promise((resolve) => {
-        (0, child_process_1.exec)('pgrep -f ProjectZomboid64', (err, stdout) => {
-            resolve(!!stdout.trim());
-        });
-    });
-};
-/**
- * (Optional) Use custom pzenv script to get more detailed server status.
- */
-const checkZomboidWithPzenv = () => {
-    return new Promise((resolve) => {
-        const fullCommand = `bash -c "source ${env_1.config.pzEnvScript} && systemctl status $PZ_SERVICE"`;
-        (0, child_process_1.exec)(fullCommand, (err, stdout, stderr) => {
-            if (err)
-                return resolve(`Error: ${stderr || err.message}`);
-            resolve(stdout.trim());
-        });
-    });
-};
-/**
- * GET /api/status
- * Returns health and component checks of the server.
- */
 router.get('/', async (_req, res) => {
     const memory = checkMemory();
     const dbStatus = await checkDatabase();
-    const zomboidRunning = await checkZomboidProcess();
-    const altStatus = env_1.config.pzEnvScript ? await checkZomboidWithPzenv() : null;
+    const instances = await (0, instances_service_1.getInstancesStatus)();
+    const runningCount = instances.filter(i => i.running).length;
     res.json({
-        serverName: env_1.config.pzName,
-        version: 'Build 41.78.16',
-        status: '🧠 Online',
-        zomboidRunning,
-        players: {
-            online: 0,
-            max: 32
-        },
+        system: 'Online',
+        instancesRunning: runningCount,
+        totalInstances: instances.length,
         components: {
             memory,
             database: dbStatus,
-            zomboidProcess: zomboidRunning ? '🟢 running' : '🔴 not running',
-            alternativeStatus: altStatus || 'disabled',
         },
         checkedAt: new Date().toISOString(),
     });

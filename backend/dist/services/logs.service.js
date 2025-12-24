@@ -18,21 +18,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getLogStats = exports.clearLogWithBackup = exports.getRecentPlayersFromLog = exports.readLogFile = void 0;
 const child_process_1 = require("child_process");
-const env_1 = require("../config/env");
 const fs_1 = __importDefault(require("fs"));
 const util_1 = require("util");
 const path_1 = __importDefault(require("path"));
 const readline_1 = __importDefault(require("readline"));
+const instances_service_1 = require("./instances.service");
 const execPromise = (0, util_1.promisify)(child_process_1.exec);
 /**
  * Read the last N lines from either the main or maintenance log.
  * @param type 'main' or 'maintenance'
  * @param lines number of lines to read
  */
-const readLogFile = (type, lines) => {
-    let logPath = env_1.config.pzLogPath;
+const readLogFile = async (instanceId, type, lines) => {
+    const instance = await (0, instances_service_1.getInstanceById)(instanceId);
+    if (!instance)
+        throw new Error(`Instance ${instanceId} not found`);
+    let logPath = instance.logPath;
     if (type === 'maintenance') {
-        logPath = env_1.config.pzMaintenanceLogPath;
+        logPath = instance.maintenanceLogPath;
     }
     const baseCommand = `tail -n ${lines} ${logPath}`;
     // If it's an error log, filter with grep
@@ -41,8 +44,12 @@ const readLogFile = (type, lines) => {
         : baseCommand;
     return new Promise((resolve, reject) => {
         (0, child_process_1.exec)(command, (err, stdout, stderr) => {
-            if (err && !stdout)
-                return reject(stderr || err.message);
+            // If error is just "file not found" or empty, treat as empty
+            if (err && !stdout) {
+                // return reject(stderr || err.message);
+                // Return empty if file not created yet
+                return resolve('');
+            }
             resolve(stdout || '[No matching lines found]');
         });
     });
@@ -51,8 +58,18 @@ exports.readLogFile = readLogFile;
 /**
  * Parses the main server log and returns players that connected within the last hour.
  */
-const getRecentPlayersFromLog = async () => {
-    const logPath = env_1.config.pzLogPath;
+const getRecentPlayersFromLog = async (instanceId) => {
+    const instance = await (0, instances_service_1.getInstanceById)(instanceId);
+    if (!instance)
+        throw new Error(`Instance ${instanceId} not found`);
+    const logPath = instance.logPath;
+    // Check if exist
+    try {
+        await fs_1.default.promises.access(logPath);
+    }
+    catch {
+        return [];
+    }
     const fileStream = fs_1.default.createReadStream(logPath, { encoding: 'utf8' });
     const rl = readline_1.default.createInterface({ input: fileStream, crlfDelay: Infinity });
     const now = Date.now();
@@ -84,8 +101,11 @@ exports.getRecentPlayersFromLog = getRecentPlayersFromLog;
  * Clear log file and create backup (only one backup per day)
  * @param type 'main' or 'maintenance'
  */
-const clearLogWithBackup = async (type) => {
-    const logPath = type === 'main' ? env_1.config.pzLogPath : env_1.config.pzMaintenanceLogPath;
+const clearLogWithBackup = async (instanceId, type) => {
+    const instance = await (0, instances_service_1.getInstanceById)(instanceId);
+    if (!instance)
+        throw new Error(`Instance ${instanceId} not found`);
+    const logPath = type === 'main' ? instance.logPath : instance.maintenanceLogPath;
     const logDir = path_1.default.dirname(logPath);
     const logFileName = path_1.default.basename(logPath);
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
@@ -93,6 +113,12 @@ const clearLogWithBackup = async (type) => {
     const backupPath = path_1.default.join(logDir, backupFileName);
     try {
         // Check if log file exists and has content
+        try {
+            await fs_1.default.promises.access(logPath);
+        }
+        catch {
+            return { success: false, message: 'Log file does not exist' };
+        }
         const stats = await fs_1.default.promises.stat(logPath);
         if (stats.size === 0) {
             return {
@@ -142,8 +168,11 @@ exports.clearLogWithBackup = clearLogWithBackup;
 /**
  * Get log file size and line count
  */
-const getLogStats = async (type) => {
-    const logPath = type === 'main' ? env_1.config.pzLogPath : env_1.config.pzMaintenanceLogPath;
+const getLogStats = async (instanceId, type) => {
+    const instance = await (0, instances_service_1.getInstanceById)(instanceId);
+    if (!instance)
+        throw new Error(`Instance ${instanceId} not found`);
+    const logPath = type === 'main' ? instance.logPath : instance.maintenanceLogPath;
     try {
         const stats = await fs_1.default.promises.stat(logPath);
         const { stdout } = await execPromise(`wc -l < ${logPath}`);
@@ -163,7 +192,12 @@ const getLogStats = async (type) => {
         };
     }
     catch (error) {
-        throw new Error(`Failed to get log stats: ${error instanceof Error ? error.message : error}`);
+        // If error (e.g. file missing), return 0
+        return {
+            totalLines: 0,
+            fileSize: 0,
+            fileSizeFormatted: '0 B'
+        };
     }
 };
 exports.getLogStats = getLogStats;

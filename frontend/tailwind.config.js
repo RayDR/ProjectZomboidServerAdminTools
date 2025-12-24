@@ -28,8 +28,9 @@ export default {
         }
       },
       fontFamily: {
-        'mono': ['Courier New', 'monospace'],
-        'zombie': ['Creepster', 'cursive'],
+        'mono': ['Courier New', 'Consolas', 'Liberation Mono', 'monospace'],
+        'zombie': ['Creepster', 'Nosifer', 'cursive'],
+        'stencil': ['Special Elite', 'Courier New', 'monospace'],
       },
       animation: {
         'glitch': 'glitch 1s linear infinite',

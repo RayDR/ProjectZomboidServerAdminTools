@@ -33,13 +33,10 @@ import { Router } from 'express';
 import { exec } from 'child_process';
 import os from 'os';
 import sqlite3 from 'sqlite3';
-import { config } from '../config/env';
+import { getInstancesStatus } from '../services/instances.service';
 
 const router = Router();
 
-/**
- * Get system memory usage.
- */
 const checkMemory = () => {
   const total = os.totalmem();
   const free = os.freemem();
@@ -53,9 +50,6 @@ const checkMemory = () => {
   };
 };
 
-/**
- * Check SQLite database connection and simple query.
- */
 const checkDatabase = (): Promise<{ ok: boolean; error?: string }> => {
   return new Promise((resolve) => {
     const db = new sqlite3.Database('./db/pzadmin.db', (err) => {
@@ -70,54 +64,20 @@ const checkDatabase = (): Promise<{ ok: boolean; error?: string }> => {
   });
 };
 
-/**
- * Check if the Project Zomboid process is running.
- */
-const checkZomboidProcess = (): Promise<boolean> => {
-  return new Promise((resolve) => {
-    exec('pgrep -f ProjectZomboid64', (err, stdout) => {
-      resolve(!!stdout.trim());
-    });
-  });
-};
-
-/**
- * (Optional) Use custom pzenv script to get more detailed server status.
- */
-const checkZomboidWithPzenv = (): Promise<string> => {
-  return new Promise((resolve) => {
-    const fullCommand = `bash -c "source ${config.pzEnvScript} && systemctl status $PZ_SERVICE"`;
-    exec(fullCommand, (err, stdout, stderr) => {
-      if (err) return resolve(`Error: ${stderr || err.message}`);
-      resolve(stdout.trim());
-    });
-  });
-};
-
-/**
- * GET /api/status
- * Returns health and component checks of the server.
- */
 router.get('/', async (_req, res) => {
   const memory = checkMemory();
   const dbStatus = await checkDatabase();
-  const zomboidRunning = await checkZomboidProcess();
-  const altStatus = config.pzEnvScript ? await checkZomboidWithPzenv() : null;
+  const instances = await getInstancesStatus();
+
+  const runningCount = instances.filter(i => i.running).length;
 
   res.json({
-    serverName: config.pzName,
-    version: 'Build 41.78.16',
-    status: '🧠 Online',
-    zomboidRunning,
-    players: {
-      online: 0,
-      max: 32
-    },
+    system: 'Online',
+    instancesRunning: runningCount,
+    totalInstances: instances.length,
     components: {
       memory,
       database: dbStatus,
-      zomboidProcess: zomboidRunning ? '🟢 running' : '🔴 not running',
-      alternativeStatus: altStatus || 'disabled',
     },
     checkedAt: new Date().toISOString(),
   });

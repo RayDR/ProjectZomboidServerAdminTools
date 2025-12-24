@@ -28,6 +28,7 @@ import playerRoutes from './routes/players';
 import messageRoutes from './routes/messages';
 import serverRoutes from './routes/server';
 import modsRoutes from './routes/mods';
+import instancesRoutes from './routes/instances';
 
 const app = express();
 const PORT = config.port;
@@ -45,10 +46,14 @@ app.use('/api/players', playerRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/server', serverRoutes);
 app.use('/api/mods', modsRoutes);
+app.use('/api/instances', instancesRoutes);
+
+import { startMonitoring } from './services/monitoring.service';
 
 const version = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8')).version;
 
 app.listen(PORT, () => {
   console.log(`🚀 PZWebAdmin-API v${version} running on port ${PORT}`);
   console.log(`📝 INI Path: ${config.pzIniPath}`);
+  startMonitoring();
 });

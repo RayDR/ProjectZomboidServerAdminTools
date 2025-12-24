@@ -18,17 +18,23 @@ import { readLogFile } from '../services/logs.service';
 import { getRecentPlayersFromLog } from '../services/logs.service';
 
 
+
 export const getLog = async (req: AuthenticatedRequest, res: Response) => {
   const allowedTypes = ['main', 'maintenance', 'errors'] as const;
-  const { type = 'main', lines = 500 } = req.query;
+  const { type = 'main', lines = 500, instanceId } = req.query;
+
+  if (!instanceId) {
+    res.status(400).json({ success: false, error: 'Instance ID is required' });
+    return;
+  }
 
   const logType = allowedTypes.includes(type as any)
     ? (type as typeof allowedTypes[number])
     : 'main';
 
   try {
-    const content = await readLogFile(logType, Number(lines));
-    res.json({ 
+    const content = await readLogFile(String(instanceId), logType, Number(lines));
+    res.json({
       success: true,
       data: {
         content,
@@ -45,9 +51,14 @@ export const getLog = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
-export const getPlayersFromLogs = async (_req: AuthenticatedRequest, res: Response) => {
+export const getPlayersFromLogs = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const players = await getRecentPlayersFromLog();
+    const { instanceId } = req.query;
+    if (!instanceId) {
+      res.status(400).json({ error: 'Instance ID required' });
+      return;
+    }
+    const players = await getRecentPlayersFromLog(String(instanceId));
     res.json({ players });
   } catch (error) {
     res.status(500).json({

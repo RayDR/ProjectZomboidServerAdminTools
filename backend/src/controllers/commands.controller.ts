@@ -21,7 +21,7 @@ import { runRconCommand } from '../services/rcon.service';
  * Supported actions: restart, stop, start, update, backup, status, rcon.
  */
 export const executeCommand = async (req: Request, res: Response) => {
-  const { action, command } = req.body;
+  const { action, command, instanceId } = req.body;
 
   if (!action) {
     return res.status(400).json({ error: 'Missing action parameter' });
@@ -33,11 +33,15 @@ export const executeCommand = async (req: Request, res: Response) => {
       if (!command) {
         return res.status(400).json({ error: 'Missing command parameter for RCON' });
       }
-      const output = await runRconCommand(command);
+      if (!instanceId) {
+        return res.status(400).json({ error: 'Missing instanceId parameter for RCON' });
+      }
+      const output = await runRconCommand(instanceId, command);
       return res.json({ success: true, message: 'RCON command executed', output });
     }
 
-    // Handle system commands
+    // Handle system commands (Legacy support, though arguably should be migrated)
+    // If instanceId provided, we could use instances service
     const output = await runCommand(action);
     res.json({ success: true, message: `Action '${action}' executed successfully.`, output });
   } catch (err) {

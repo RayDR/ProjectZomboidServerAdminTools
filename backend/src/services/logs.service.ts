@@ -13,11 +13,11 @@
  */
 
 import { exec } from 'child_process';
-import { config } from '../config/env';
 import fs from 'fs';
 import { promisify } from 'util';
 import path from 'path';
 import readline from 'readline';
+import { getInstanceById } from './instances.service';
 
 const execPromise = promisify(exec);
 
@@ -26,14 +26,18 @@ const execPromise = promisify(exec);
  * @param type 'main' or 'maintenance'
  * @param lines number of lines to read
  */
-export const readLogFile = (
+export const readLogFile = async (
+  instanceId: string,
   type: 'main' | 'maintenance' | 'errors',
   lines: number
 ): Promise<string> => {
-  let logPath = config.pzLogPath;
+  const instance = await getInstanceById(instanceId);
+  if (!instance) throw new Error(`Instance ${instanceId} not found`);
+
+  let logPath = instance.logPath;
 
   if (type === 'maintenance') {
-    logPath = config.pzMaintenanceLogPath;
+    logPath = instance.maintenanceLogPath;
   }
 
   const baseCommand = `tail -n ${lines} ${logPath}`;
@@ -45,7 +49,12 @@ export const readLogFile = (
 
   return new Promise((resolve, reject) => {
     exec(command, (err, stdout, stderr) => {
-      if (err && !stdout) return reject(stderr || err.message);
+      // If error is just "file not found" or empty, treat as empty
+      if (err && !stdout) {
+        // return reject(stderr || err.message);
+        // Return empty if file not created yet
+        return resolve('');
+      }
       resolve(stdout || '[No matching lines found]');
     });
   });
@@ -54,8 +63,19 @@ export const readLogFile = (
 /**
  * Parses the main server log and returns players that connected within the last hour.
  */
-export const getRecentPlayersFromLog = async (): Promise<string[]> => {
-  const logPath = config.pzLogPath;
+export const getRecentPlayersFromLog = async (instanceId: string): Promise<string[]> => {
+  const instance = await getInstanceById(instanceId);
+  if (!instance) throw new Error(`Instance ${instanceId} not found`);
+
+  const logPath = instance.logPath;
+
+  // Check if exist
+  try {
+    await fs.promises.access(logPath);
+  } catch {
+    return [];
+  }
+
   const fileStream = fs.createReadStream(logPath, { encoding: 'utf8' });
   const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
 
@@ -90,8 +110,14 @@ export const getRecentPlayersFromLog = async (): Promise<string[]> => {
  * Clear log file and create backup (only one backup per day)
  * @param type 'main' or 'maintenance'
  */
-export const clearLogWithBackup = async (type: 'main' | 'maintenance'): Promise<{ success: boolean; message: string; backup?: string }> => {
-  const logPath = type === 'main' ? config.pzLogPath : config.pzMaintenanceLogPath;
+export const clearLogWithBackup = async (
+  instanceId: string,
+  type: 'main' | 'maintenance'
+): Promise<{ success: boolean; message: string; backup?: string }> => {
+  const instance = await getInstanceById(instanceId);
+  if (!instance) throw new Error(`Instance ${instanceId} not found`);
+
+  const logPath = type === 'main' ? instance.logPath : instance.maintenanceLogPath;
   const logDir = path.dirname(logPath);
   const logFileName = path.basename(logPath);
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
@@ -100,8 +126,13 @@ export const clearLogWithBackup = async (type: 'main' | 'maintenance'): Promise<
 
   try {
     // Check if log file exists and has content
+    try {
+      await fs.promises.access(logPath);
+    } catch {
+      return { success: false, message: 'Log file does not exist' };
+    }
     const stats = await fs.promises.stat(logPath);
-    
+
     if (stats.size === 0) {
       return {
         success: false,
@@ -113,7 +144,7 @@ export const clearLogWithBackup = async (type: 'main' | 'maintenance'): Promise<
     if (fs.existsSync(backupPath)) {
       // Check if existing backup has content
       const backupStats = await fs.promises.stat(backupPath);
-      
+
       if (backupStats.size > 0) {
         return {
           success: false,
@@ -155,12 +186,18 @@ export const clearLogWithBackup = async (type: 'main' | 'maintenance'): Promise<
 /**
  * Get log file size and line count
  */
-export const getLogStats = async (type: 'main' | 'maintenance'): Promise<{
+export const getLogStats = async (
+  instanceId: string,
+  type: 'main' | 'maintenance'
+): Promise<{
   totalLines: number;
   fileSize: number;
   fileSizeFormatted: string;
 }> => {
-  const logPath = type === 'main' ? config.pzLogPath : config.pzMaintenanceLogPath;
+  const instance = await getInstanceById(instanceId);
+  if (!instance) throw new Error(`Instance ${instanceId} not found`);
+
+  const logPath = type === 'main' ? instance.logPath : instance.maintenanceLogPath;
 
   try {
     const stats = await fs.promises.stat(logPath);
@@ -181,6 +218,11 @@ export const getLogStats = async (type: 'main' | 'maintenance'): Promise<{
       fileSizeFormatted: formatFileSize(stats.size)
     };
   } catch (error) {
-    throw new Error(`Failed to get log stats: ${error instanceof Error ? error.message : error}`);
+    // If error (e.g. file missing), return 0
+    return {
+      totalLines: 0,
+      fileSize: 0,
+      fileSizeFormatted: '0 B'
+    };
   }
 };

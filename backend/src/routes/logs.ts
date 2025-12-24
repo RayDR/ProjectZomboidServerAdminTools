@@ -18,13 +18,19 @@ import { readLogFile, clearLogWithBackup, getLogStats } from '../services/logs.s
 
 const router = Router();
 
+
 // GET /api/logs/server - Get server log
 router.get('/server', auth, async (req, res) => {
-  const { lines = 500 } = req.query;
+  const { lines = 500, instanceId } = req.query;
+
+  if (!instanceId) {
+    res.status(400).json({ success: false, error: 'Instance ID is required' });
+    return;
+  }
 
   try {
-    const content = await readLogFile('main', Number(lines));
-    res.json({ 
+    const content = await readLogFile(String(instanceId), 'main', Number(lines));
+    res.json({
       success: true,
       data: {
         content,
@@ -43,11 +49,16 @@ router.get('/server', auth, async (req, res) => {
 
 // GET /api/logs/maintenance - Get maintenance log
 router.get('/maintenance', auth, async (req, res) => {
-  const { lines = 500 } = req.query;
+  const { lines = 500, instanceId } = req.query;
+
+  if (!instanceId) {
+    res.status(400).json({ success: false, error: 'Instance ID is required' });
+    return;
+  }
 
   try {
-    const content = await readLogFile('maintenance', Number(lines));
-    res.json({ 
+    const content = await readLogFile(String(instanceId), 'maintenance', Number(lines));
+    res.json({
       success: true,
       data: {
         content,
@@ -64,17 +75,22 @@ router.get('/maintenance', auth, async (req, res) => {
   }
 });
 
-// Legacy endpoint for backwards compatibility
+// Legacy endpoint for backwards compatibility (Updated to require instanceId)
 router.get('/', auth, async (req, res) => {
   const allowedTypes = ['main', 'maintenance', 'errors'] as const;
-  const { type = 'main', lines = 100 } = req.query;
+  const { type = 'main', lines = 100, instanceId } = req.query;
+
+  if (!instanceId) {
+    res.status(400).json({ success: false, error: 'Instance ID is required' });
+    return;
+  }
 
   const logType = allowedTypes.includes(type as any)
     ? (type as typeof allowedTypes[number])
     : 'main';
 
   try {
-    const log = await readLogFile(logType, Number(lines));
+    const log = await readLogFile(String(instanceId), logType, Number(lines));
     res.json({ log });
   } catch (err) {
     res.status(500).json({
@@ -86,7 +102,12 @@ router.get('/', auth, async (req, res) => {
 
 // POST /api/logs/clear - Clear log file with backup
 router.post('/clear', auth, async (req, res) => {
-  const { type = 'main' } = req.body;
+  const { type = 'main', instanceId } = req.body;
+
+  if (!instanceId) {
+    res.status(400).json({ success: false, error: 'Instance ID is required' });
+    return;
+  }
 
   if (!['main', 'maintenance'].includes(type)) {
     res.status(400).json({
@@ -97,7 +118,7 @@ router.post('/clear', auth, async (req, res) => {
   }
 
   try {
-    const result = await clearLogWithBackup(type as 'main' | 'maintenance');
+    const result = await clearLogWithBackup(instanceId, type as 'main' | 'maintenance');
     res.json(result);
   } catch (err) {
     res.status(500).json({
@@ -110,7 +131,12 @@ router.post('/clear', auth, async (req, res) => {
 
 // GET /api/logs/stats - Get log statistics
 router.get('/stats', auth, async (req, res) => {
-  const { type = 'main' } = req.query;
+  const { type = 'main', instanceId } = req.query;
+
+  if (!instanceId) {
+    res.status(400).json({ success: false, error: 'Instance ID is required' });
+    return;
+  }
 
   if (!['main', 'maintenance'].includes(type as string)) {
     res.status(400).json({
@@ -121,7 +147,7 @@ router.get('/stats', auth, async (req, res) => {
   }
 
   try {
-    const stats = await getLogStats(type as 'main' | 'maintenance');
+    const stats = await getLogStats(String(instanceId), type as 'main' | 'maintenance');
     res.json({
       success: true,
       data: stats

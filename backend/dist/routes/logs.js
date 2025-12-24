@@ -19,9 +19,13 @@ const logs_service_1 = require("../services/logs.service");
 const router = (0, express_1.Router)();
 // GET /api/logs/server - Get server log
 router.get('/server', auth_1.auth, async (req, res) => {
-    const { lines = 500 } = req.query;
+    const { lines = 500, instanceId } = req.query;
+    if (!instanceId) {
+        res.status(400).json({ success: false, error: 'Instance ID is required' });
+        return;
+    }
     try {
-        const content = await (0, logs_service_1.readLogFile)('main', Number(lines));
+        const content = await (0, logs_service_1.readLogFile)(String(instanceId), 'main', Number(lines));
         res.json({
             success: true,
             data: {
@@ -41,9 +45,13 @@ router.get('/server', auth_1.auth, async (req, res) => {
 });
 // GET /api/logs/maintenance - Get maintenance log
 router.get('/maintenance', auth_1.auth, async (req, res) => {
-    const { lines = 500 } = req.query;
+    const { lines = 500, instanceId } = req.query;
+    if (!instanceId) {
+        res.status(400).json({ success: false, error: 'Instance ID is required' });
+        return;
+    }
     try {
-        const content = await (0, logs_service_1.readLogFile)('maintenance', Number(lines));
+        const content = await (0, logs_service_1.readLogFile)(String(instanceId), 'maintenance', Number(lines));
         res.json({
             success: true,
             data: {
@@ -61,15 +69,19 @@ router.get('/maintenance', auth_1.auth, async (req, res) => {
         });
     }
 });
-// Legacy endpoint for backwards compatibility
+// Legacy endpoint for backwards compatibility (Updated to require instanceId)
 router.get('/', auth_1.auth, async (req, res) => {
     const allowedTypes = ['main', 'maintenance', 'errors'];
-    const { type = 'main', lines = 100 } = req.query;
+    const { type = 'main', lines = 100, instanceId } = req.query;
+    if (!instanceId) {
+        res.status(400).json({ success: false, error: 'Instance ID is required' });
+        return;
+    }
     const logType = allowedTypes.includes(type)
         ? type
         : 'main';
     try {
-        const log = await (0, logs_service_1.readLogFile)(logType, Number(lines));
+        const log = await (0, logs_service_1.readLogFile)(String(instanceId), logType, Number(lines));
         res.json({ log });
     }
     catch (err) {
@@ -81,7 +93,11 @@ router.get('/', auth_1.auth, async (req, res) => {
 });
 // POST /api/logs/clear - Clear log file with backup
 router.post('/clear', auth_1.auth, async (req, res) => {
-    const { type = 'main' } = req.body;
+    const { type = 'main', instanceId } = req.body;
+    if (!instanceId) {
+        res.status(400).json({ success: false, error: 'Instance ID is required' });
+        return;
+    }
     if (!['main', 'maintenance'].includes(type)) {
         res.status(400).json({
             success: false,
@@ -90,7 +106,7 @@ router.post('/clear', auth_1.auth, async (req, res) => {
         return;
     }
     try {
-        const result = await (0, logs_service_1.clearLogWithBackup)(type);
+        const result = await (0, logs_service_1.clearLogWithBackup)(instanceId, type);
         res.json(result);
     }
     catch (err) {
@@ -103,7 +119,11 @@ router.post('/clear', auth_1.auth, async (req, res) => {
 });
 // GET /api/logs/stats - Get log statistics
 router.get('/stats', auth_1.auth, async (req, res) => {
-    const { type = 'main' } = req.query;
+    const { type = 'main', instanceId } = req.query;
+    if (!instanceId) {
+        res.status(400).json({ success: false, error: 'Instance ID is required' });
+        return;
+    }
     if (!['main', 'maintenance'].includes(type)) {
         res.status(400).json({
             success: false,
@@ -112,7 +132,7 @@ router.get('/stats', auth_1.auth, async (req, res) => {
         return;
     }
     try {
-        const stats = await (0, logs_service_1.getLogStats)(type);
+        const stats = await (0, logs_service_1.getLogStats)(String(instanceId), type);
         res.json({
             success: true,
             data: stats

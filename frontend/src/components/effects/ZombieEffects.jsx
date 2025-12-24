@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // Scanner line effect (como pantalla de terminal)
 export const ScannerLine = () => {
@@ -28,6 +29,12 @@ export const BloodDrip = ({ delay = 0 }) => {
 
 // Glitch text effect
 export const GlitchText = ({ children, className }) => {
+  const { settings } = useTheme();
+  
+  if (!settings.animations) {
+    return <span className={className}>{children}</span>;
+  }
+  
   return (
     <motion.span
       className={`glitch ${className}`}
@@ -117,6 +124,12 @@ export const ZombieHand = () => {
 
 // Floating particles effect
 export const FloatingParticles = ({ count = 20 }) => {
+  const { settings } = useTheme();
+  
+  if (!settings.animations) {
+    return null;
+  }
+  
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden">
       {Array.from({ length: count }).map((_, i) => (
@@ -145,11 +158,16 @@ export const FloatingParticles = ({ count = 20 }) => {
 
 // Status indicator (pulsing)
 export const StatusIndicator = ({ status = 'online' }) => {
+  const { settings } = useTheme();
   const colors = {
     online: 'bg-zombie-success',
     offline: 'bg-zombie-blood',
     warning: 'bg-zombie-warning',
   };
+
+  if (!settings.animations) {
+    return <div className={`w-3 h-3 rounded-full ${colors[status]}`} />;
+  }
 
   return (
     <motion.div
@@ -207,7 +225,9 @@ export const LoadingScreen = ({ message = 'LOADING...' }) => {
 
 // Warning flash effect
 export const WarningFlash = ({ active }) => {
-  if (!active) return null;
+  const { settings } = useTheme();
+  
+  if (!active || !settings.animations) return null;
 
   return (
     <motion.div

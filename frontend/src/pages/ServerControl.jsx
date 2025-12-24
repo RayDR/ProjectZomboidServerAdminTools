@@ -7,6 +7,7 @@ import {
 import { Card, Button, Badge } from '../components/ui';
 import { GlitchText, LoadingScreen, WarningFlash } from '../components/effects/ZombieEffects';
 import ServerLogsModal from '../components/effects/ServerLogsModal';
+import InstanceSelector from '../components/InstanceSelector';
 import { useTranslation } from '../i18n/index.jsx';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -15,26 +16,93 @@ const ServerControl = () => {
   const [serverStatus, setServerStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [logsModal, setLogsModal] = useState({ isOpen: false, operation: '', endpoint: '' });
+  const [localUptime, setLocalUptime] = useState(null);
+  const [isServerRunning, setIsServerRunning] = useState(false);
   const { t } = useTranslation();
+
+  // Format seconds to human readable
+  const formatUptimeFromSeconds = (totalSeconds) => {
+    if (totalSeconds === null || totalSeconds === undefined) return 'N/A';
+    
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  };
 
   const fetchServerStatus = async () => {
     try {
-      const response = await api.get('/server/status');
-      if (response.data.success) {
-        setServerStatus(response.data.data);
+      const [statusRes, healthRes] = await Promise.all([
+        api.get('/server/status'),
+        api.get('/health')
+      ]);
+      
+      if (statusRes.data.success) {
+        const data = statusRes.data.data;
+        setServerStatus(data);
+        
+        // Check if server is running
+        const running = data.status === 'running';
+        setIsServerRunning(running);
+        
+        // Initialize uptime from health endpoint (format: "577s")
+        if (running && healthRes.data?.uptime) {
+          const uptimeInSeconds = parseInt(healthRes.data.uptime);
+          setLocalUptime(uptimeInSeconds);
+        } else if (!running) {
+          setLocalUptime(null);
+        }
       }
     } catch (error) {
       toast.error(t('error') + ': ' + (error.response?.data?.error || error.message));
+      setIsServerRunning(false);
+      setLocalUptime(null);
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch only once on mount
   useEffect(() => {
     fetchServerStatus();
-    const interval = setInterval(fetchServerStatus, 5000);
-    return () => clearInterval(interval);
   }, []);
+
+  // Local uptime ticker
+  useEffect(() => {
+    if (!isServerRunning || localUptime === null) return;
+
+    const ticker = setInterval(() => {
+      setLocalUptime(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(ticker);
+  }, [isServerRunning, localUptime]);
+
+  // Periodic status check (not uptime)
+  useEffect(() => {
+    const statusCheck = setInterval(async () => {
+      try {
+        const response = await api.get('/server/status');
+        if (response.data.success) {
+          const running = response.data.data.status === 'running';
+          
+          // If status changed, fetch full data
+          if (running !== isServerRunning) {
+            fetchServerStatus();
+          }
+        }
+      } catch (err) {
+        console.error('Status check failed:', err);
+      }
+    }, 5000);
+
+    return () => clearInterval(statusCheck);
+  }, [isServerRunning]);
 
   const handleServerAction = (action, actionName, endpoint) => {
     setLogsModal({
@@ -79,6 +147,9 @@ const ServerControl = () => {
         </Button>
       </div>
 
+      {/* Instance Selector */}
+      <InstanceSelector onInstanceChange={fetchServerStatus} />
+
       {/* Server Status Card */}
       <Card className={`border-2 ${isRunning ? 'border-zombie-green' : 'border-zombie-blood'}`}>
         <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
@@ -93,6 +164,11 @@ const ServerControl = () => {
               <p className="text-gray-400">
                 {t('serverControl.status') || 'Server Status'}: {serverStatus?.status || 'Unknown'}
               </p>
+              {serverStatus?.instanceName && (
+                <p className="text-zombie-green text-sm font-bold">
+                  📦 {serverStatus.instanceName}
+                </p>
+              )}
             </div>
           </div>
           <Badge variant={isRunning ? 'success' : 'error'} className="text-lg px-4 py-2">
@@ -107,7 +183,7 @@ const ServerControl = () => {
               <FaClock className="text-zombie-green text-2xl" />
               <div>
                 <p className="text-gray-400 text-sm">{t('dashboard.uptime') || 'Uptime'}</p>
-                <p className="text-terminal-text font-bold">{serverStatus?.uptime || 'N/A'}</p>
+                <p className="text-terminal-text font-bold">{formatUptimeFromSeconds(localUptime)}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FaCog, FaSave, FaUndo, FaExclamationTriangle, FaSearch } from 'react-icons/fa';
+import { FaCog, FaSave, FaUndo, FaExclamationTriangle, FaSearch, FaDownload } from 'react-icons/fa';
 import { Card, Button, Input, Badge, Modal } from '../components/ui';
 import { GlitchText, LoadingScreen } from '../components/effects/ZombieEffects';
 import { useTranslation } from '../i18n/index.jsx';
@@ -15,10 +15,12 @@ const Config = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [activeInstance, setActiveInstance] = useState(null);
   const { t } = useTranslation();
 
   useEffect(() => {
     fetchConfig();
+    fetchActiveInstance();
   }, []);
 
   useEffect(() => {
@@ -39,6 +41,17 @@ const Config = () => {
       toast.error(t('error') + ': ' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchActiveInstance = async () => {
+    try {
+      const response = await api.get('/instances/active');
+      if (response.data.success) {
+        setActiveInstance(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching active instance:', error);
     }
   };
 
@@ -129,6 +142,24 @@ const Config = () => {
     toast.success(t('config.discardChanges') + ' ✓');
   };
 
+  const downloadConfig = () => {
+    try {
+      const iniContent = objectToIni(config);
+      const blob = new Blob([iniContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'servertest.ini';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('INI downloaded ✓');
+    } catch (error) {
+      toast.error('Download failed: ' + error.message);
+    }
+  };
+
   const updateSetting = (category, key, value) => {
     setConfig(prev => ({
       ...prev,
@@ -185,8 +216,29 @@ const Config = () => {
   }
 
   const displayConfig = filteredConfig();
-  const categoryCount = Object.keys(displayConfig).length;
-  const settingCount = Object.values(displayConfig).reduce((acc, cat) => acc + Object.keys(cat).length, 0);
+  
+  // Debug: ver estructura del config
+  console.log('Config structure:', Object.keys(config));
+  console.log('Full config:', config);
+  
+  // Obtener información útil del servidor - buscar en todas las categorías posibles
+  let serverSettings = config[''] || config['General'] || config['Server'] || {};
+  
+  const serverName = serverSettings.PublicName || serverSettings.ServerName || 'N/A';
+  const isPublic = serverSettings.Open === 'true' || serverSettings.Open === '1';
+  const isPVP = serverSettings.PVP === 'true' || serverSettings.PVP === '1';
+  const serverType = isPVP ? 'PVP' : 'PVE';
+  
+  // Contar mods instalados
+  const modsString = serverSettings.Mods || '';
+  const workshopString = serverSettings.WorkshopItems || '';
+  const modsCount = modsString ? modsString.split(';').filter(m => m.trim()).length : 0;
+  const workshopCount = workshopString ? workshopString.split(';').filter(m => m.trim()).length : 0;
+  const totalMods = modsCount + workshopCount;
+  
+  // Puertos
+  const defaultPort = serverSettings.DefaultPort || 'N/A';
+  const rconPort = serverSettings.RCONPort || 'N/A';
 
   return (
     <div className="space-y-6">
@@ -199,8 +251,20 @@ const Config = () => {
           <p className="text-zombie-green text-sm sm:text-base">
             {t('config.subtitle')}
           </p>
+          {activeInstance && (
+            <Badge variant="info" className="mt-2">
+              📋 {activeInstance.name}
+            </Badge>
+          )}
         </div>
         <div className="flex space-x-2">
+          <Button 
+            variant="secondary" 
+            onClick={downloadConfig}
+          >
+            <FaDownload className="mr-2" />
+            Download INI
+          </Button>
           {hasUnsavedChanges && (
             <Button 
               variant="secondary" 
@@ -235,39 +299,50 @@ const Config = () => {
         </Card>
       )}
 
-      {/* Stats */}
+      {/* Server Info Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-zombie-green to-zombie-green-dark">
           <div className="text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-white">{categoryCount}</div>
-            <div className="text-xs text-white opacity-80 uppercase tracking-wide mt-1">
-              Categories
+            <div className="text-lg sm:text-xl font-bold text-white truncate px-2" title={serverName}>
+              {serverName}
             </div>
-          </div>
-        </Card>
-        
-        <Card>
-          <div className="text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-terminal-text">{settingCount}</div>
-            <div className="text-xs text-gray-400 uppercase tracking-wide mt-1">Settings</div>
+            <div className="text-xs text-white opacity-80 uppercase tracking-wide mt-1">
+              Server Name
+            </div>
           </div>
         </Card>
         
         <Card>
           <div className="text-center">
             <div className="text-2xl sm:text-3xl font-bold text-terminal-text">
-              {hasUnsavedChanges ? '✗' : '✓'}
+              {isPublic ? '🌍' : '🔒'} {serverType}
             </div>
             <div className="text-xs text-gray-400 uppercase tracking-wide mt-1">
-              {hasUnsavedChanges ? 'Modified' : 'Saved'}
+              {isPublic ? 'Public' : 'Private'}
             </div>
           </div>
         </Card>
         
         <Card>
           <div className="text-center">
-            <div className="text-xl sm:text-2xl font-bold text-terminal-text">INI</div>
-            <div className="text-xs text-gray-400 uppercase tracking-wide mt-1">Format</div>
+            <div className="text-2xl sm:text-3xl font-bold text-terminal-text">
+              {totalMods} 📦
+            </div>
+            <div className="text-xs text-gray-400 uppercase tracking-wide mt-1">
+              Mods Installed
+            </div>
+          </div>
+        </Card>
+        
+        <Card>
+          <div className="text-center">
+            <div className="text-sm sm:text-base font-bold text-terminal-text">
+              Game: {defaultPort}
+            </div>
+            <div className="text-sm sm:text-base font-bold text-terminal-text mt-1">
+              RCON: {rconPort}
+            </div>
+            <div className="text-xs text-gray-400 uppercase tracking-wide mt-1">Ports</div>
           </div>
         </Card>
       </div>

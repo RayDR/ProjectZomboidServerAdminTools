@@ -14,21 +14,34 @@
 
 import { Request, Response } from 'express';
 import { readFile, writeFile } from 'fs/promises';
-import { config } from '../config/env';
+import { getInstanceById } from '../services/instances.service';
 
 /**
- * GET /api/ini
+ * GET /api/config/ini
  * Reads the Project Zomboid INI configuration file.
  */
-export const getIni = async (_req: Request, res: Response) => {
+export const getIni = async (req: Request, res: Response) => {
   try {
-    const iniPath = config.pzIniPath;
-    
+    const { instanceId } = req.query;
+
+    if (!instanceId) {
+      res.status(400).json({ success: false, error: 'Instance ID required' });
+      return;
+    }
+
+    const instance = await getInstanceById(String(instanceId));
+    if (!instance) {
+      res.status(404).json({ success: false, error: 'Instance not found' });
+      return;
+    }
+
+    const iniPath = instance.iniPath;
+
     console.log(`Reading INI file at: ${iniPath}`);
     const content = await readFile(iniPath, 'utf-8');
-    res.json({ 
+    res.json({
       success: true,
-      data: { content }
+      data: { content, path: iniPath }
     });
   } catch (err) {
     res.status(500).json({
@@ -40,25 +53,37 @@ export const getIni = async (_req: Request, res: Response) => {
 };
 
 /**
- * PUT /api/ini
+ * PUT /api/config/ini
  * Updates the Project Zomboid INI file with new content.
  */
 export const updateIni = async (req: Request, res: Response) => {
   try {
-    const content = req.body.content;
+    const { content, instanceId } = req.body;
+
+    if (!instanceId) {
+      res.status(400).json({ success: false, error: 'Instance ID required' });
+      return;
+    }
+
     if (typeof content !== 'string') {
-      res.status(400).json({ 
+      res.status(400).json({
         success: false,
-        error: 'Invalid content format' 
+        error: 'Invalid content format'
       });
       return;
     }
 
-    const iniPath = config.pzIniPath;
+    const instance = await getInstanceById(String(instanceId));
+    if (!instance) {
+      res.status(404).json({ success: false, error: 'Instance not found' });
+      return;
+    }
+
+    const iniPath = instance.iniPath;
     await writeFile(iniPath, content);
-    res.json({ 
+    res.json({
       success: true,
-      message: 'INI file updated successfully' 
+      message: 'INI file updated successfully'
     });
   } catch (err) {
     res.status(500).json({

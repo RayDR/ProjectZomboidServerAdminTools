@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
 
 const ThemeContext = createContext();
 
@@ -53,43 +54,74 @@ const themes = {
 };
 
 const fonts = {
-  mono: {
-    name: 'Monospace',
-    family: '"Courier New", Courier, monospace',
+  terminal: {
+    name: 'Terminal Classic',
+    family: '"Courier New", "Consolas", "Liberation Mono", monospace',
     className: 'font-mono',
   },
-  zombie: {
-    name: 'Creepster',
-    family: '"Creepster", cursive',
+  horror: {
+    name: 'Horror/Zombie',
+    family: '"Creepster", "Nosifer", cursive',
     className: 'font-zombie',
   },
-  system: {
-    name: 'System',
-    family: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    className: 'font-sans',
+  military: {
+    name: 'Military Stencil',
+    family: '"Special Elite", "Courier New", monospace',
+    className: 'font-stencil',
   },
 };
 
 export const ThemeProvider = ({ children }) => {
   const [settings, setSettings] = useState(() => {
-    const saved = localStorage.getItem('pzwebadmin-theme-settings');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse theme settings:', e);
-      }
-    }
-    return {
+    const defaults = {
       theme: 'zombie',
-      font: 'mono',
+      font: 'terminal',
       animations: true,
       customTitle: '',
       useServerName: true,
     };
+    
+    const saved = localStorage.getItem('pzwebadmin-theme-settings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Validate that theme and font exist
+        if (!themes[parsed.theme]) {
+          parsed.theme = defaults.theme;
+        }
+        if (!fonts[parsed.font]) {
+          parsed.font = defaults.font;
+        }
+        return { ...defaults, ...parsed };
+      } catch (e) {
+        console.error('Failed to parse theme settings:', e);
+      }
+    }
+    return defaults;
   });
 
-  const [serverName, setServerName] = useState('Project Zomboid');
+  const [serverName, setServerName] = useState(() => {
+    const saved = sessionStorage.getItem('pzwebadmin-server-name');
+    return saved || 'Project Zomboid';
+  });
+
+  // Fetch server name from backend on mount
+  useEffect(() => {
+    const fetchServerName = async () => {
+      try {
+        const response = await api.get('/server/config');
+        if (response.data.success && response.data.data.serverName) {
+          const name = response.data.data.serverName;
+          setServerName(name);
+          sessionStorage.setItem('pzwebadmin-server-name', name);
+        }
+      } catch (error) {
+        console.error('Failed to fetch server name:', error);
+      }
+    };
+
+    fetchServerName();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('pzwebadmin-theme-settings', JSON.stringify(settings));
@@ -97,8 +129,8 @@ export const ThemeProvider = ({ children }) => {
   }, [settings]);
 
   const applyTheme = () => {
-    const theme = themes[settings.theme];
-    const font = fonts[settings.font];
+    const theme = themes[settings.theme] || themes.zombie;
+    const font = fonts[settings.font] || fonts.terminal;
 
     // Apply CSS variables
     const root = document.documentElement;

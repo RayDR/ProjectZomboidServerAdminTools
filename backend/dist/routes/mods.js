@@ -45,23 +45,36 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const multer_1 = __importDefault(require("multer"));
 const modsController = __importStar(require("../controllers/mods.controller"));
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
+// Configure multer for file uploads
+const upload = (0, multer_1.default)({
+    dest: '/tmp/pz-mod-uploads',
+    limits: {
+        fileSize: 500 * 1024 * 1024, // 500MB max file size
+    }
+});
 /**
  * Mods Routes
  * All routes are protected with authentication middleware
  */
 // GET /api/mods - Get installed mods
 router.get('/', auth_1.auth, modsController.getInstalledModsController);
-// POST /api/mods/install - Install a mod
-router.post('/install', auth_1.auth, modsController.installModController);
+// POST /api/mods/install - Install a mod (with file upload support)
+router.post('/install', auth_1.auth, upload.array('files', 10), modsController.installModController);
 // DELETE /api/mods/:modId - Uninstall a mod
 router.delete('/:modId', auth_1.auth, modsController.uninstallModController);
-// POST /api/mods/update-all - Update all mods
+// POST /api/mods/update-all - Update all mods (simple response)
 router.post('/update-all', auth_1.auth, modsController.updateAllModsController);
+// GET /api/mods/update-all-stream - Update all mods with SSE streaming
+router.get('/update-all-stream', auth_1.auth, modsController.updateAllModsStreamController);
 // GET /api/mods/validate - Validate mod files
 router.get('/validate', auth_1.auth, modsController.validateModsController);
 exports.default = router;

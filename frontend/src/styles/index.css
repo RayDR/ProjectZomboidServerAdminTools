@@ -1,16 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Creepster&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Creepster&family=Special+Elite&family=Nosifer&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Default theme variables (Zombie Green) */
+    --color-primary: #00ff41;
+    --color-secondary: #39ff14;
+    --color-accent: #7fff00;
+    --color-danger: #ff0000;
+    --color-warning: #ffa500;
+    --color-background: #0a0e0a;
+    --color-card-bg: #1a1f1a;
+    --color-text-primary: #00ff41;
+    --color-text-secondary: #39ff14;
+    --color-shadow: rgba(0, 255, 65, 0.3);
+    --font-family: "Courier New", Courier, monospace;
+  }
+
   * {
     @apply border-zombie-gray;
   }
   
   body {
-    @apply bg-zombie-gray-dark text-terminal-text font-mono;
+    @apply bg-zombie-gray-dark text-terminal-text;
+    font-family: var(--font-family);
     background-image: 
       url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23000000" fill-opacity="0.05"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
   }
@@ -180,6 +196,39 @@
 }
 
 @layer utilities {
+  /* Theme-aware utilities using CSS variables */
+  .text-theme-primary {
+    color: var(--color-primary);
+  }
+  
+  .text-theme-secondary {
+    color: var(--color-secondary);
+  }
+  
+  .bg-theme-primary {
+    background-color: var(--color-primary);
+  }
+  
+  .bg-theme-secondary {
+    background-color: var(--color-secondary);
+  }
+  
+  .bg-theme-card {
+    background-color: var(--color-card-bg);
+  }
+  
+  .border-theme-primary {
+    border-color: var(--color-primary);
+  }
+  
+  .border-theme-secondary {
+    border-color: var(--color-secondary);
+  }
+  
+  .shadow-theme {
+    box-shadow: 0 0 20px var(--color-shadow);
+  }
+  
   .text-shadow-terminal {
     text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
   }

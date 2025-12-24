@@ -15,6 +15,7 @@
 import { Router } from 'express';
 import * as serverController from '../controllers/server.controller';
 import * as serverLogsController from '../controllers/server-logs.controller';
+import * as configService from '../services/config.service';
 import { auth } from '../middleware/auth';
 
 const router = Router();
@@ -53,5 +54,11 @@ router.get('/backups', auth, serverController.listBackupsController);
 
 // DELETE /api/server/backups/:filename - Delete a backup
 router.delete('/backups/:filename', auth, serverController.deleteBackupController);
+
+// GET /api/server/config - Get server configuration
+router.get('/config', auth, async (req, res) => {
+  const result = await configService.getServerConfig();
+  res.json(result);
+});
 
 export default router;
