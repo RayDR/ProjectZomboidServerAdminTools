@@ -15,21 +15,43 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../types/auth.types';
 import { readLogFile } from '../services/logs.service';
+import { getRecentPlayersFromLog } from '../services/logs.service';
+
 
 export const getLog = async (req: AuthenticatedRequest, res: Response) => {
   const allowedTypes = ['main', 'maintenance', 'errors'] as const;
-  const { type = 'main', lines = 100 } = req.query;
+  const { type = 'main', lines = 500 } = req.query;
 
   const logType = allowedTypes.includes(type as any)
     ? (type as typeof allowedTypes[number])
     : 'main';
 
   try {
-    const data = await readLogFile(logType, Number(lines));
-    res.json({ log: data });
+    const content = await readLogFile(logType, Number(lines));
+    res.json({ 
+      success: true,
+      data: {
+        content,
+        type: logType,
+        lines: content.split('\n').length
+      }
+    });
   } catch (error) {
     res.status(500).json({
+      success: false,
       error: 'Failed to read log file',
+      details: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+export const getPlayersFromLogs = async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const players = await getRecentPlayersFromLog();
+    res.json({ players });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to read recent players from logs',
       details: error instanceof Error ? error.message : error,
     });
   }

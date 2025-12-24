@@ -14,10 +14,57 @@
 
 import { Router } from 'express';
 import { auth } from '../middleware/auth';
-import { readLogFile } from '../services/logs.service';
+import { readLogFile, clearLogWithBackup, getLogStats } from '../services/logs.service';
 
 const router = Router();
 
+// GET /api/logs/server - Get server log
+router.get('/server', auth, async (req, res) => {
+  const { lines = 500 } = req.query;
+
+  try {
+    const content = await readLogFile('main', Number(lines));
+    res.json({ 
+      success: true,
+      data: {
+        content,
+        type: 'server',
+        lines: content.split('\n').length
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to read server log',
+      details: (err as Error).message
+    });
+  }
+});
+
+// GET /api/logs/maintenance - Get maintenance log
+router.get('/maintenance', auth, async (req, res) => {
+  const { lines = 500 } = req.query;
+
+  try {
+    const content = await readLogFile('maintenance', Number(lines));
+    res.json({ 
+      success: true,
+      data: {
+        content,
+        type: 'maintenance',
+        lines: content.split('\n').length
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to read maintenance log',
+      details: (err as Error).message
+    });
+  }
+});
+
+// Legacy endpoint for backwards compatibility
 router.get('/', auth, async (req, res) => {
   const allowedTypes = ['main', 'maintenance', 'errors'] as const;
   const { type = 'main', lines = 100 } = req.query;
@@ -32,6 +79,57 @@ router.get('/', auth, async (req, res) => {
   } catch (err) {
     res.status(500).json({
       error: 'Failed to read log file',
+      details: (err as Error).message
+    });
+  }
+});
+
+// POST /api/logs/clear - Clear log file with backup
+router.post('/clear', auth, async (req, res) => {
+  const { type = 'main' } = req.body;
+
+  if (!['main', 'maintenance'].includes(type)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid log type. Must be "main" or "maintenance"'
+    });
+    return;
+  }
+
+  try {
+    const result = await clearLogWithBackup(type as 'main' | 'maintenance');
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear log',
+      details: (err as Error).message
+    });
+  }
+});
+
+// GET /api/logs/stats - Get log statistics
+router.get('/stats', auth, async (req, res) => {
+  const { type = 'main' } = req.query;
+
+  if (!['main', 'maintenance'].includes(type as string)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid log type'
+    });
+    return;
+  }
+
+  try {
+    const stats = await getLogStats(type as 'main' | 'maintenance');
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get log stats',
       details: (err as Error).message
     });
   }

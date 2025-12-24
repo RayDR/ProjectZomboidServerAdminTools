@@ -14,23 +14,35 @@
 
 import { Request, Response } from 'express';
 import { runCommand } from '../services/commands.service';
+import { runRconCommand } from '../services/rcon.service';
 
 /**
  * Controller to execute a shell command based on the requested action.
- * Supported actions: restart, stop, start, update, backup, status.
+ * Supported actions: restart, stop, start, update, backup, status, rcon.
  */
 export const executeCommand = async (req: Request, res: Response) => {
-  const { action } = req.body;
+  const { action, command } = req.body;
 
   if (!action) {
     return res.status(400).json({ error: 'Missing action parameter' });
   }
 
   try {
+    // Handle RCON commands separately
+    if (action === 'rcon') {
+      if (!command) {
+        return res.status(400).json({ error: 'Missing command parameter for RCON' });
+      }
+      const output = await runRconCommand(command);
+      return res.json({ success: true, message: 'RCON command executed', output });
+    }
+
+    // Handle system commands
     const output = await runCommand(action);
-    res.json({ message: `Action '${action}' executed successfully.`, output });
+    res.json({ success: true, message: `Action '${action}' executed successfully.`, output });
   } catch (err) {
     res.status(500).json({
+      success: false,
       error: `Failed to execute action '${action}'`,
       details: err instanceof Error ? err.message : err,
     });

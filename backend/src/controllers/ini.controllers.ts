@@ -14,7 +14,6 @@
 
 import { Request, Response } from 'express';
 import { readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
 import { config } from '../config/env';
 
 /**
@@ -23,11 +22,17 @@ import { config } from '../config/env';
  */
 export const getIni = async (_req: Request, res: Response) => {
   try {
-    const iniPath = join(config.pzIniPath, `${config.pzName}.ini`);
+    const iniPath = config.pzIniPath;
+    
+    console.log(`Reading INI file at: ${iniPath}`);
     const content = await readFile(iniPath, 'utf-8');
-    res.json({ content });
+    res.json({ 
+      success: true,
+      data: { content }
+    });
   } catch (err) {
     res.status(500).json({
+      success: false,
       error: 'Failed to read INI file',
       details: (err as Error).message,
     });
@@ -42,15 +47,22 @@ export const updateIni = async (req: Request, res: Response) => {
   try {
     const content = req.body.content;
     if (typeof content !== 'string') {
-      res.status(400).json({ error: 'Invalid content format' });
+      res.status(400).json({ 
+        success: false,
+        error: 'Invalid content format' 
+      });
       return;
     }
 
-    const iniPath = join(config.pzIniPath, `${config.pzName}.ini`);
+    const iniPath = config.pzIniPath;
     await writeFile(iniPath, content);
-    res.json({ message: 'INI file updated successfully' });
+    res.json({ 
+      success: true,
+      message: 'INI file updated successfully' 
+    });
   } catch (err) {
     res.status(500).json({
+      success: false,
       error: 'Failed to update INI file',
       details: (err as Error).message,
     });

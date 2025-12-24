@@ -1,0 +1,197 @@
+@import url('https://fonts.googleapis.com/css2?family=Creepster&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-zombie-gray;
+  }
+  
+  body {
+    @apply bg-zombie-gray-dark text-terminal-text font-mono;
+    background-image: 
+      url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23000000" fill-opacity="0.05"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+  }
+  
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-zombie-gray-dark;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-zombie-green border-2 border-zombie-gray;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-zombie-green-light;
+  }
+}
+
+@layer components {
+  /* Terminal/CRT screen effect */
+  .terminal-screen {
+    @apply relative bg-terminal-bg text-terminal-text p-4 rounded border-2 border-terminal-border shadow-terminal;
+    font-family: 'Courier New', monospace;
+  }
+  
+  .terminal-screen::before {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: linear-gradient(
+      rgba(18, 16, 16, 0) 50%,
+      rgba(0, 0, 0, 0.25) 50%
+    );
+    background-size: 100% 4px;
+    z-index: 2;
+    animation: flicker 0.15s infinite;
+  }
+  
+  /* Scanner line effect */
+  .scanner-line {
+    @apply absolute left-0 right-0 h-px bg-terminal-text opacity-20;
+    animation: scanner 4s linear infinite;
+  }
+  
+  /* Blood drip effect */
+  .blood-drip {
+    @apply absolute w-1 h-8 bg-zombie-blood opacity-70;
+    animation: blood-drip 2s ease-in infinite;
+  }
+  
+  /* Glitch text effect */
+  .glitch {
+    @apply relative inline-block;
+  }
+  
+  .glitch:hover {
+    animation: glitch 0.3s ease-in-out;
+  }
+  
+  /* Zombie-themed cards */
+  .zombie-card {
+    @apply bg-zombie-gray border-2 border-zombie-green rounded-lg p-4 shadow-zombie transition-all duration-300;
+  }
+  
+  .zombie-card:hover {
+    @apply border-zombie-green-light shadow-terminal transform scale-105;
+  }
+  
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide;
+  }
+  
+  .badge-success {
+    @apply bg-zombie-green text-white border border-zombie-green-light;
+  }
+  
+  .badge-error {
+    @apply bg-zombie-blood text-white border border-zombie-blood-dark animate-pulse-red;
+  }
+  
+  .badge-warning {
+    @apply bg-zombie-warning text-zombie-gray-dark border border-yellow-600;
+  }
+  
+  /* Buttons */
+  .btn {
+    @apply px-4 py-2 rounded font-bold uppercase tracking-wide transition-all duration-300 border-2 flex items-center justify-center;
+  }
+  
+  .btn-primary {
+    @apply bg-zombie-green text-white border-zombie-green-light hover:bg-zombie-green-light hover:shadow-terminal;
+  }
+  
+  .btn-danger {
+    @apply bg-zombie-blood text-white border-zombie-blood-dark hover:bg-red-700 hover:shadow-blood;
+  }
+  
+  .btn-secondary {
+    @apply bg-zombie-gray-light text-terminal-text border-zombie-gray hover:bg-zombie-gray hover:border-terminal-border;
+  }
+  
+  .btn:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  
+  /* Input fields */
+  .input {
+    @apply w-full bg-zombie-gray-dark text-terminal-text border-2 border-zombie-gray px-4 py-2 rounded focus:outline-none focus:border-terminal-border focus:shadow-terminal transition-all;
+  }
+  
+  /* Alert boxes */
+  .alert {
+    @apply p-4 rounded border-2 mb-4;
+  }
+  
+  .alert-error {
+    @apply bg-zombie-blood bg-opacity-20 border-zombie-blood text-zombie-error;
+  }
+  
+  .alert-success {
+    @apply bg-zombie-green bg-opacity-20 border-zombie-green text-zombie-success;
+  }
+  
+  .alert-warning {
+    @apply bg-zombie-warning bg-opacity-20 border-zombie-warning text-yellow-200;
+  }
+  
+  /* Loading spinner */
+  .spinner {
+    @apply inline-block w-6 h-6 border-4 border-zombie-gray border-t-terminal-text rounded-full;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* Blood splatter decoration */
+  .blood-splatter {
+    position: relative;
+  }
+  
+  .blood-splatter::before {
+    content: '💀';
+    @apply absolute -top-2 -right-2 text-2xl opacity-30;
+  }
+  
+  /* Glow effect */
+  .glow {
+    @apply shadow-terminal;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: .7;
+    }
+  }
+}
+
+@layer utilities {
+  .text-shadow-terminal {
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+  }
+  
+  .text-shadow-blood {
+    text-shadow: 0 0 10px rgba(139, 0, 0, 0.8);
+  }
+  
+  .bg-grid {
+    background-size: 20px 20px;
+    background-image: 
+      linear-gradient(to right, rgba(0, 255, 0, 0.1) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 255, 0, 0.1) 1px, transparent 1px);
+  }
+}

@@ -105,8 +105,14 @@ router.get('/', async (_req, res) => {
   const altStatus = config.pzEnvScript ? await checkZomboidWithPzenv() : null;
 
   res.json({
-    server: config.pzName,
+    serverName: config.pzName,
+    version: 'Build 41.78.16',
     status: '🧠 Online',
+    zomboidRunning,
+    players: {
+      online: 0,
+      max: 32
+    },
     components: {
       memory,
       database: dbStatus,

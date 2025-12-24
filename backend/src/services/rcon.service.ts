@@ -12,42 +12,47 @@
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
  */
 
-
-import Rcon from 'rcon';
+import { exec } from 'child_process';
 import { config } from '../config/env';
 
 /**
- * Executes a remote RCON command and returns its raw response.
+ * Sends a broadcast message using mcrcon.
+ */
+export function sendServerMessage(message: string): void {
+  const escaped = message.replace(/"/g, '\\"');
+  const cmd = `/usr/local/bin/mcrcon -H ${config.pzRconHost} -P ${config.pzRconPort} -p "${config.pzRconPassword}" "servermsg \\"${escaped}\\""`;
+
+  exec(cmd, (error, stdout, stderr) => {
+    if (error) {
+      console.error('[RCON] ❌ Failed to send message:', error.message);
+    } else {
+      console.log('[RCON] ✅ Message sent:', stdout.trim());
+    }
+  });
+}
+
+/**
+ * Optional fallback: Run a raw RCON command using Rcon module (TCP).
  */
 export const runRconCommand = (command: string): Promise<string> => {
   return new Promise((resolve, reject) => {
+    const Rcon = require('rcon');
     const rcon = new Rcon(config.pzRconHost, config.pzRconPort, config.pzRconPassword, {
       tcp: true,
       challenge: false,
       timeout: 3000,
     });
 
-    rcon.on('auth', () => {
-      rcon.send(command);
-    });
-
-    rcon.on('response', (response) => {
+    rcon.on('auth', () => rcon.send(command));
+    rcon.on('response', (res: string) => {
       rcon.disconnect();
-      resolve(response.trim());
+      resolve(res.trim());
     });
-
-    rcon.on('error', (err) => {
+    rcon.on('error', (err: Error) => {
       rcon.disconnect();
-      reject(new Error(`RCON error: ${err.message}`));
+      reject(new Error(`[RCON] Error: ${err.message}`));
     });
 
     rcon.connect();
   });
-};
-
-/**
- * Sends a broadcast message to the Project Zomboid server.
- */
-export const sendServerMessage = (message: string): Promise<string> => {
-  return runRconCommand(`servermsg "${message}"`);
 };

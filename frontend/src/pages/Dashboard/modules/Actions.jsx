@@ -6,8 +6,8 @@ import { runCommand } from '../../../services/api';
 export default function Actions() {
   const actions = [
     { action: 'restart', label: '🔁 Reiniciar servidor' },
-    { action: 'backup', label: '📦 Backup' },
-    { action: 'fullupdate', label: '🛠️ Full Update' }
+    { action: 'backup', label: '📦 Respaldame!' },
+    { action: 'update', label: '🛠️ Actualizalo!' }
   ];
 
   const handleAction = async (action) => {

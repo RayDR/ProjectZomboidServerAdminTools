@@ -13,10 +13,9 @@
  */
 
 import fs from 'fs/promises';
-import path from 'path';
 import { config } from '../config/env';
 
-const iniFilePath = path.join(config.pzIniPath, `${config.pzName}.ini`);
+const iniFilePath = config.pzIniPath; // Already includes full path with filename
 
 export const readIniFile = async (): Promise<string> => {
   return await fs.readFile(iniFilePath, 'utf-8');

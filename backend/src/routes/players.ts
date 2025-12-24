@@ -15,7 +15,7 @@
 
 import { Router } from 'express';
 import { auth } from '../middleware/auth';
-import { getConnectedPlayers } from '../controllers/players.controller';
+import { getPlayersFromLogs } from '../controllers/logs.controller';
 
 const router = Router();
 
@@ -23,6 +23,6 @@ const router = Router();
  * GET /api/players
  * Returns the list of connected players via RCON.
  */
-router.get('/', auth, getConnectedPlayers);
+router.get('/', auth, getPlayersFromLogs);
 
 export default router;

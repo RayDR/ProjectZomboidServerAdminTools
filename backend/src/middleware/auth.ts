@@ -24,20 +24,41 @@ interface UserRow {
 
 const db = new sqlite3.Database('./db/pzadmin.db');
 
-export function auth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const token = (req.headers['authorization'] || '').replace('Bearer ', '').trim();
+export function auth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  // Try to get token from Authorization header first
+  let token = (req.headers['authorization'] || '').replace('Bearer ', '').trim();
+  
+  // If not in header, try query parameter (for EventSource/SSE)
+  if (!token && req.query.token) {
+    token = req.query.token as string;
+  }
+  
+  console.log(`🔐 Auth middleware - Path: ${req.path}, Token: ${token ? token.substring(0, 10) + '...' : 'none'}`);
 
   if (token === 'secret123') {
     req.user = { username: 'token_user', id: null };
-    return next();
+    console.log(`✅ Auth passed for ${req.path}`);
+    next();
+    return;
+  }
+
+  if (!token) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
   }
 
   db.get<UserRow>(
     `SELECT u.id, u.username FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`,
     [token],
     (err, row) => {
-      if (err) return res.status(500).json({ error: 'DB error' });
-      if (!row) return res.status(401).json({ error: 'Unauthorized' });
+      if (err) {
+        res.status(500).json({ error: 'DB error' });
+        return;
+      }
+      if (!row) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
 
       req.user = { id: row.id, username: row.username };
       next();

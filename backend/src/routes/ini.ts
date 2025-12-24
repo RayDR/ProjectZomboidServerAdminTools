@@ -20,5 +20,6 @@ const router = Router();
 
 router.get('/', auth, getIni);
 router.put('/', auth, updateIni);
+router.post('/', auth, updateIni); // Support POST for backward compatibility
 
 export default router;

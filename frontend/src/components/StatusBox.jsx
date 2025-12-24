@@ -1,14 +1,54 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getServerStatus } from '../services/api';
 
 export default function StatusBox() {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
+  const intervalRef = useRef(null);
+
+  const fetchStatus = async () => {
+    if (document.hidden) return;
+    try {
+      const result = await getServerStatus();
+      setStatus(result);
+      setError(null);
+    } catch {
+      setError('Connection failed.');
+    }
+  };
 
   useEffect(() => {
-    getServerStatus()
-      .then(setStatus)
-      .catch(() => setError('Connection failed.'));
+    fetchStatus();
+
+    const startInterval = () => {
+      if (!intervalRef.current) {
+        intervalRef.current = setInterval(fetchStatus, 15000);
+      }
+    };
+
+    const stopInterval = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopInterval();
+      } else {
+        fetchStatus();
+        startInterval();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (!document.hidden) startInterval();
+
+    return () => {
+      stopInterval();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   if (error) {
@@ -23,13 +63,7 @@ export default function StatusBox() {
     return <div className="pz-status">Cargando estado...</div>;
   }
 
-  const {
-    server,
-    status: serverStatus,
-    components,
-    checkedAt
-  } = status;
-
+  const { server, status: serverStatus, components, checkedAt } = status;
   const mem = components?.memory || {};
   const db = components?.database;
   const zomboid = components?.zomboidProcess;
