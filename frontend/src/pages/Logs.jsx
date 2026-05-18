@@ -596,8 +596,6 @@ const Logs = () => {
           ref={logsContainerRef}
           className="bg-black rounded p-4 overflow-y-auto font-mono text-xs sm:text-sm relative"
           style={{
-            fontFamily: 'monospace',
-            background: 'linear-gradient(to bottom, #000000, #001100)',
             height: `${viewerHeight}px`,
             transition: isResizing ? 'none' : 'height 0.2s ease'
           }}

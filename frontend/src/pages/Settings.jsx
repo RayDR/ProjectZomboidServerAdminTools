@@ -4,15 +4,16 @@ import { useTranslation } from '../i18n/index.jsx';
 import { useTheme } from '../contexts/ThemeContext';
 import { Card, Button, Input } from '../components/ui';
 import { GlitchText } from '../components/effects/ZombieEffects';
-import { 
-  FaCog, 
-  FaPalette, 
-  FaFont, 
-  FaToggleOn, 
+import {
+  FaCog,
+  FaPalette,
+  FaFont,
+  FaToggleOn,
   FaToggleOff,
   FaHeading,
   FaSave,
-  FaUndo
+  FaUndo,
+  FaClock
 } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
 
@@ -64,11 +65,12 @@ const Settings = () => {
 
   const handleResetDefaults = () => {
     const defaults = {
-      theme: 'zombie',
-      font: 'mono',
+      theme: 'zomboid-classic',
+      font: 'terminal',
       animations: true,
       customTitle: '',
       useServerName: true,
+      refreshRate: 5000,
     };
     setLocalSettings(defaults);
   };
@@ -163,19 +165,19 @@ const Settings = () => {
           {t('settings.colorTheme')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.entries(themes).map(([key, theme]) => (
+          {themes.map((theme) => (
             <div
-              key={key}
-              onClick={() => handleThemeChange(key)}
+              key={theme.id}
+              onClick={() => handleThemeChange(theme.id)}
               className={`
                 cursor-pointer rounded-lg p-4 border-2 transition-all
-                ${localSettings.theme === key 
-                  ? 'border-opacity-100 shadow-lg' 
+                ${localSettings.theme === theme.id
+                  ? 'border-opacity-100 shadow-lg'
                   : 'border-gray-600 hover:border-gray-400'}
               `}
               style={{
-                borderColor: localSettings.theme === key ? theme.primary : undefined,
-                boxShadow: localSettings.theme === key ? `0 0 20px ${theme.shadow}` : undefined,
+                borderColor: localSettings.theme === theme.id ? theme.primary : undefined,
+                boxShadow: localSettings.theme === theme.id ? `0 0 20px ${theme.shadow}` : undefined,
                 backgroundColor: theme.cardBg,
               }}
             >
@@ -183,24 +185,24 @@ const Settings = () => {
                 <span className="font-bold" style={{ color: theme.primary }}>
                   {theme.name}
                 </span>
-                {localSettings.theme === key && (
+                {localSettings.theme === theme.id && (
                   <span style={{ color: theme.primary }}>✓</span>
                 )}
               </div>
               <div className="flex space-x-2">
-                <div 
+                <div
                   className="w-8 h-8 rounded"
                   style={{ backgroundColor: theme.primary }}
                 />
-                <div 
+                <div
                   className="w-8 h-8 rounded"
                   style={{ backgroundColor: theme.secondary }}
                 />
-                <div 
+                <div
                   className="w-8 h-8 rounded"
-                  style={{ backgroundColor: theme.accent }}
+                  style={{ backgroundColor: theme.tertiary }}
                 />
-                <div 
+                <div
                   className="w-8 h-8 rounded"
                   style={{ backgroundColor: theme.danger }}
                 />
@@ -223,8 +225,8 @@ const Settings = () => {
               onClick={() => handleFontChange(key)}
               className={`
                 cursor-pointer rounded-lg p-4 border-2 transition-all
-                ${localSettings.font === key 
-                  ? 'border-zombie-green shadow-lg shadow-zombie-green/20' 
+                ${localSettings.font === key
+                  ? 'border-zombie-green shadow-lg shadow-zombie-green/20'
                   : 'border-gray-600 hover:border-gray-400'}
               `}
               style={{ backgroundColor: 'var(--color-card-bg)' }}
@@ -237,14 +239,39 @@ const Settings = () => {
                   <span className="text-zombie-green">✓</span>
                 )}
               </div>
-              <p 
+              <p
                 className="text-lg"
                 style={{ fontFamily: font.family, color: currentTheme.textPrimary }}
               >
-                The quick brown fox jumps over the lazy dog
+                {t('settings.fontPreviewText')}
               </p>
             </div>
           ))}
+        </div>
+      </Card>
+
+      {/* Refresh Rate */}
+      <Card>
+        <h2 className="text-xl font-bold text-terminal-text mb-4 flex items-center">
+          <FaClock className="mr-2" />
+          {t('settings.refreshRate') || "Refresh Rate"}
+        </h2>
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <input
+              type="range"
+              min="1000"
+              max="60000"
+              step="1000"
+              value={localSettings.refreshRate || 5000}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, refreshRate: Number(e.target.value) }))}
+              className="w-fullaccent-zombie-green"
+              style={{ accentColor: currentTheme.primary }}
+            />
+          </div>
+          <span className="font-mono text-terminal-text w-24 text-right">
+            {(localSettings.refreshRate || 5000) / 1000}s
+          </span>
         </div>
       </Card>
 

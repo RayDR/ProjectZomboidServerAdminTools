@@ -20,8 +20,10 @@ import { auth } from '../middleware/auth';
 const router = Router();
 
 // Configure multer for file uploads
-const upload = multer({ 
-  dest: '/tmp/pz-mod-uploads',
+import path from 'path';
+
+const upload = multer({
+  dest: path.join(__dirname, '../../uploads'), // Use local uploads folder
   limits: {
     fileSize: 500 * 1024 * 1024, // 500MB max file size
   }

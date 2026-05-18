@@ -35,7 +35,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const os_1 = __importDefault(require("os"));
 const sqlite3_1 = __importDefault(require("sqlite3"));
-const instances_service_1 = require("../services/instances.service");
+const instance_manager_1 = require("../managers/instance.manager");
 const router = (0, express_1.Router)();
 const checkMemory = () => {
     const total = os_1.default.totalmem();
@@ -65,8 +65,8 @@ const checkDatabase = () => {
 router.get('/', async (_req, res) => {
     const memory = checkMemory();
     const dbStatus = await checkDatabase();
-    const instances = await (0, instances_service_1.getInstancesStatus)();
-    const runningCount = instances.filter(i => i.running).length;
+    const instances = await instance_manager_1.instanceManager.listInstances();
+    const runningCount = instances.filter((i) => i.running).length;
     res.json({
         system: 'Online',
         instancesRunning: runningCount,

@@ -1,3 +1,4 @@
+
 /**
  * @license MIT
  * © 2025 DomoForge (https://domoforge.com)
@@ -15,56 +16,32 @@
 import { Router } from 'express';
 import * as instancesController from '../controllers/instances.controller';
 import { auth } from '../middleware/auth';
+import multer from 'multer';
+import path from 'path';
 
 const router = Router();
+const upload = multer({ dest: path.join(__dirname, '../../uploads') });
 
-/**
- * @route GET /api/instances
- * @desc Get all server instances with their status
- * @access Private
- */
-router.get('/', auth, instancesController.getInstancesController);
+// Crear instancia desde versión seleccionada
+router.post('/from-version', auth, (req, res) => { void instancesController.createInstanceFromVersionController(req, res); });
+// List available PZ server versions
+router.get('/versions', auth, (req, res) => { void instancesController.getAvailableVersionsController(req, res); });
 
-/**
- * @route POST /api/instances
- * @desc Add a new instance
- * @access Private
- */
-router.post('/', auth, instancesController.addInstanceController);
+// Instances management
+router.get('/', auth, (req, res) => { void instancesController.getInstancesController(req, res); });
+router.post('/', auth, (req, res) => { void instancesController.addInstanceController(req, res); });
+router.post('/:instanceId/start', auth, (req, res) => { void instancesController.startInstanceController(req, res); });
+router.post('/:instanceId/stop', auth, (req, res) => { void instancesController.stopInstanceController(req, res); });
+router.post('/:instanceId/restart', auth, (req, res) => { void instancesController.restartInstanceController(req, res); });
+router.post('/:instanceId/kill', auth, (req, res) => { void instancesController.forceStopInstanceController(req, res); });
+router.patch('/:instanceId', auth, (req, res) => { void instancesController.updateInstanceController(req, res); });
+router.delete('/:instanceId', auth, (req, res) => { void instancesController.deleteInstanceController(req, res); });
 
-/**
- * @route POST /api/instances/:instanceId/start
- * @desc Start an instance
- * @access Private
- */
-router.post('/:instanceId/start', auth, instancesController.startInstanceController);
-
-/**
- * @route POST /api/instances/:instanceId/stop
- * @desc Stop an instance
- * @access Private
- */
-router.post('/:instanceId/stop', auth, instancesController.stopInstanceController);
-
-/**
- * @route POST /api/instances/:instanceId/restart
- * @desc Restart an instance
- * @access Private
- */
-router.post('/:instanceId/restart', auth, instancesController.restartInstanceController);
-
-/**
- * @route POST /api/instances/:instanceId/kill
- * @desc Force stop an instance
- * @access Private
- */
-router.post('/:instanceId/kill', auth, instancesController.forceStopInstanceController);
-
-/**
- * @route PATCH /api/instances/:instanceId
- * @desc Update instance configuration
- * @access Private
- */
-router.patch('/:instanceId', auth, instancesController.updateInstanceController);
+// Mods Management
+router.get('/:instanceId/mods', auth, (req, res) => { void instancesController.getModsController(req, res); });
+router.post('/:instanceId/mods', auth, (req, res) => { void instancesController.addModController(req, res); });
+router.post('/:instanceId/mods/upload', auth, upload.single('file'), (req, res) => { void instancesController.uploadModController(req, res); });
+router.delete('/:instanceId/mods/:modId', auth, (req, res) => { void instancesController.removeModController(req, res); });
 
 export default router;
+

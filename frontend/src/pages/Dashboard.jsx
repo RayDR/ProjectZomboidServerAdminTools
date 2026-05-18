@@ -12,8 +12,10 @@ import InstanceDetailsModal from '../components/InstanceDetailsModal';
 import { useTranslation } from '../i18n/index.jsx';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Dashboard = () => {
+  const { settings } = useTheme();
   const [instances, setInstances] = useState([]);
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,10 @@ const Dashboard = () => {
   const [selectedInstance, setSelectedInstance] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [systemLoad, setSystemLoad] = useState(0);
+  const [showStats, setShowStats] = useState({ cpu: false, memory: false });
   const { t } = useTranslation();
+
+  const toggleStat = (type) => setShowStats(prev => ({ ...prev, [type]: !prev[type] }));
 
   const fetchData = async () => {
     try {
@@ -33,7 +38,7 @@ const Dashboard = () => {
       setInstances(instancesRes.data.data);
       setHealth(healthRes.data);
 
-      // Calculate generic system load if available, or mockup
+      // Calculate generic system load if available
       if (healthRes.data?.load) setSystemLoad(healthRes.data.load);
 
       setError(null);
@@ -47,9 +52,9 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000); // Poll every 5s
+    const interval = setInterval(fetchData, settings.refreshRate || 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [settings.refreshRate]);
 
   const handleInstanceAction = async (e, id, action) => {
     e.stopPropagation(); // Prevent opening modal
@@ -88,7 +93,7 @@ const Dashboard = () => {
           transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
           className="text-6xl mb-4 text-zombie-green"
         >
-          ☣️
+          <FaCog />
         </motion.div>
       </div>
     );
@@ -102,45 +107,89 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-terminal-text font-zombie">
             <GlitchText>{t('dashboard.title')}</GlitchText>
           </h1>
-          <p className="text-zombie-green opacity-80">System Management Console</p>
+          <p className="text-zombie-green opacity-80">{t('dashboard.subtitle')}</p>
         </div>
-        <Button variant="secondary" onClick={fetchData}>Refresh</Button>
+        <Button variant="secondary" onClick={fetchData}><FaRedo className="mr-2" /> {t('refresh')}</Button>
       </div>
 
       {/* System Health Strip */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-zombie-black border-zombie-green bg-opacity-50">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        {/* CPU */}
+        <Card
+          className="bg-zombie-black border-zombie-green bg-opacity-50 cursor-pointer hover:bg-opacity-70 transition-all"
+          onClick={() => toggleStat('cpu')}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-xs uppercase">System Status</p>
-              <h3 className="text-xl font-bold text-zombie-green">OPERATIONAL</h3>
+              <p className="text-gray-400 text-xs uppercase">{t('dashboard.cpuLoad')}</p>
+              <h3 className="text-xl font-bold text-zombie-green">
+                {showStats.cpu ? `${health?.process?.cpu?.toFixed(1) || 0}% Process` : `${health?.cpu || 0}%`}
+              </h3>
             </div>
             <FaMicrochip className="text-2xl text-zombie-green opacity-50" />
           </div>
+          <div className="w-full bg-gray-700 h-1 mt-2 rounded-full overflow-hidden">
+            <div className="bg-zombie-green h-full transition-all duration-500" style={{ width: `${health?.cpu || 0}%` }}></div>
+          </div>
+          {showStats.cpu && <p className="text-xs text-gray-500 mt-1">Load: {systemLoad ? systemLoad.join(', ') : 'N/A'}</p>}
         </Card>
+
+        {/* Memory */}
+        <Card
+          className="bg-zombie-black border-zombie-green bg-opacity-50 cursor-pointer hover:bg-opacity-70 transition-all"
+          onClick={() => toggleStat('memory')}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-xs uppercase">{t('dashboard.memoryUsage')}</p>
+              <h3 className="text-xl font-bold text-blue-400">
+                {showStats.memory
+                  ? `${((health?.memory?.total - health?.memory?.free) / 1024 / 1024 / 1024).toFixed(1)}GB / ${(health?.memory?.total / 1024 / 1024 / 1024).toFixed(1)}GB`
+                  : `${health?.memory?.percent || 0}%`}
+              </h3>
+            </div>
+            <FaMemory className="text-2xl text-blue-400 opacity-50" />
+          </div>
+          <div className="w-full bg-gray-700 h-1 mt-2 rounded-full overflow-hidden">
+            <div className="bg-blue-400 h-full transition-all duration-500" style={{ width: `${health?.memory?.percent || 0}%` }}></div>
+          </div>
+          {showStats.memory && <p className="text-xs text-gray-500 mt-1">Used / Total</p>}
+        </Card>
+
+        {/* Disk */}
         <Card className="bg-zombie-black border-zombie-green bg-opacity-50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-xs uppercase">Active Instances</p>
+              <p className="text-gray-400 text-xs uppercase">{t('dashboard.diskUsage')}</p>
+              <h3 className="text-xl font-bold text-purple-400">{health?.disk?.percent || 0}%</h3>
+            </div>
+            <FaHdd className="text-2xl text-purple-400 opacity-50" />
+          </div>
+          <p className="text-xs text-gray-400 mt-1">{health?.disk?.free || '0 GB'} free</p>
+        </Card>
+
+        {/* Instances */}
+        <Card className="bg-zombie-black border-zombie-green bg-opacity-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-xs uppercase">{t('dashboard.activeInstances')}</p>
               <h3 className="text-xl font-bold text-white">{instances.filter(i => i.running).length} / {instances.length}</h3>
             </div>
-            <FaServer className="text-2xl text-blue-400 opacity-50" />
+            <FaServer className="text-2xl text-white opacity-50" />
+          </div>
+          <div className="flex -space-x-2 mt-2">
+            {instances.filter(i => i.running).map(i => (
+              <div key={i.id} className="w-6 h-6 rounded-full bg-zombie-green border-2 border-black" title={i.name}></div>
+            ))}
           </div>
         </Card>
-        <Card className="bg-zombie-black border-zombie-green bg-opacity-50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-xs uppercase">Total Players</p>
-              <h3 className="text-xl font-bold text-yellow-400">--</h3>
-            </div>
-            <FaUsers className="text-2xl text-yellow-400 opacity-50" />
-          </div>
-        </Card>
+
       </div>
 
       {/* Instances Grid */}
       <h2 className="text-2xl font-bold text-terminal-text mt-8 flex items-center">
-        <FaServer className="mr-2" /> Server Instances
+        <FaServer className="mr-2" /> {t('dashboard.instances')}
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -151,33 +200,41 @@ const Dashboard = () => {
             className="cursor-pointer"
             onClick={() => handleOpenInstance(instance)}
           >
-            <Card className={`h-full border-l-4 ${instance.running ? 'border-l-zombie-success' : 'border-l-zombie-error'} relative overflow-hidden group`}>
+            {/* Crash Alert Border */}
+            <Card className={`h-full relative overflow-hidden group border-l-4 
+                ${!instance.running && instance.shutdownReason !== 'manual' && instance.shutdownReason !== 'acknowledged' ? 'border-red-600 animate-pulse ring-2 ring-red-500' :
+                instance.running ? 'border-l-zombie-success' : 'border-l-zombie-error'}
+            `}>
               {/* Background pattern or effect */}
-              <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">
+              <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl pointer-events-none">
                 {instance.running ? <FaCheckCircle /> : <FaSkull />}
               </div>
 
               <div className="flex justify-between items-start mb-4 relative z-10">
                 <div>
                   <h3 className="text-xl font-bold text-white group-hover:text-zombie-green transition-colors">{instance.name}</h3>
-                  <p className="text-sm text-gray-400">{instance.description}</p>
+                  <p className="text-sm text-gray-400">{instance.version || instance.description}</p>
                   <div className="mt-2 text-xs font-mono text-gray-500">
                     ID: {instance.id} | Port: {instance.gamePort}
                   </div>
                 </div>
+              </div>
+
+              {/* Status Badge moved to bottom to not overlap background icon */}
+              <div className="mb-4">
                 <Badge variant={instance.running ? 'success' : 'error'}>
-                  {instance.running ? 'ONLINE' : 'OFFLINE'}
+                  {instance.running ? t('nav.online') : t('nav.offline')}
                 </Badge>
               </div>
 
               {/* Stats (if running) */}
               <div className="grid grid-cols-2 gap-2 mb-4 relative z-10 bg-black bg-opacity-20 p-2 rounded">
                 <div className="text-center">
-                  <p className="text-xs text-gray-500">RCON</p>
-                  <p className="font-mono text-sm">{instance.rconPort}</p>
+                  <p className="text-xs text-gray-500">{t('instances.port')}</p>
+                  <p className="font-mono text-sm">{instance.gamePort}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs text-gray-500">PID</p>
+                  <p className="text-xs text-gray-500">{t('instances.pid')}</p>
                   <p className="font-mono text-sm">{instance.pid || '-'}</p>
                 </div>
               </div>
@@ -185,14 +242,31 @@ const Dashboard = () => {
               {/* Controls */}
               <div className="flex space-x-2 relative z-10 mt-auto">
                 {!instance.running ? (
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    className="flex-1"
-                    onClick={(e) => handleInstanceAction(e, instance.id, 'start')}
-                  >
-                    <FaPlay className="mr-1" /> Play
-                  </Button>
+                  !instance.running && instance.shutdownReason !== 'manual' && instance.shutdownReason !== 'acknowledged' ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="flex-1 bg-red-900 hover:bg-red-800 text-white animate-pulse"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          await api.patch(`/instances/${instance.id}`, { shutdownReason: 'acknowledged' });
+                          fetchData();
+                        } catch (err) { toast.error('Failed to ack'); }
+                      }}
+                    >
+                      <FaExclamationTriangle className="mr-1" /> Acknowledge Crash
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="flex-1"
+                      onClick={(e) => handleInstanceAction(e, instance.id, 'start')}
+                    >
+                      <FaPlay className="mr-1" /> {t('instances.play')}
+                    </Button>
+                  )
                 ) : (
                   <>
                     <Button
@@ -201,7 +275,7 @@ const Dashboard = () => {
                       className="flex-1"
                       onClick={(e) => handleInstanceAction(e, instance.id, 'restart')}
                     >
-                      <FaRedo className="mr-1" /> Reboot
+                      <FaRedo className="mr-1" /> {t('instances.reboot')}
                     </Button>
                     <Button
                       size="sm"
@@ -209,16 +283,16 @@ const Dashboard = () => {
                       className="flex-1"
                       onClick={(e) => handleInstanceAction(e, instance.id, 'stop')}
                     >
-                      <FaStop className="mr-1" /> Stop
+                      <FaStop className="mr-1" /> {t('instances.stop')}
                     </Button>
                   </>
                 )}
               </div>
 
               {/* Status message or reason */}
-              {instance.shutdownReason && !instance.running && (
-                <div className="mt-2 text-xs text-red-400">
-                  Last Stop: {instance.shutdownReason}
+              {instance.shutdownReason && !instance.running && instance.shutdownReason !== 'manual' && instance.shutdownReason !== 'acknowledged' && (
+                <div className="mt-2 text-xs text-red-400 font-bold">
+                  {t('instances.lastStop')}: {instance.shutdownReason || 'CRASHED'}
                 </div>
               )}
             </Card>
@@ -229,7 +303,7 @@ const Dashboard = () => {
         <motion.div whileHover={{ scale: 1.02 }} className="cursor-pointer min-h-[200px] flex" onClick={() => setShowAddModal(true)}>
           <Card className="border-dashed border-2 border-gray-700 flex flex-col items-center justify-center w-full hover:border-zombie-green transition-colors group">
             <FaPlus className="text-4xl text-gray-600 group-hover:text-zombie-green mb-2" />
-            <span className="text-gray-500 group-hover:text-white">Add Instance</span>
+            <span className="text-gray-500 group-hover:text-white">{t('dashboard.addInstance')}</span>
           </Card>
         </motion.div>
       </div>

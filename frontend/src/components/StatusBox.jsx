@@ -69,38 +69,28 @@ export default function StatusBox() {
   const zomboid = components?.zomboidProcess;
 
   return (
-    <div
-      className="pz-status"
-      style={{
-        background: '#111',
-        padding: '1rem',
-        border: '1px solid #333',
-        borderRadius: '8px',
-        color: '#eee',
-        fontFamily: 'monospace'
-      }}
-    >
+    <div className="bg-surfaceAlt p-4 border border-border rounded-lg text-text font-mono text-sm space-y-2">
       <div>
-        <strong>🌐 Estado:</strong>{' '}
-        <span style={{ color: 'limegreen' }}>{serverStatus}</span>
+        <strong className="text-primary">🌐 Estado:</strong>{' '}
+        <span className={serverStatus === 'RUNNING' ? 'text-success font-bold' : 'text-danger font-bold'}>{serverStatus}</span>
       </div>
       <div>
-        <strong>🗄 Servidor:</strong> {server}
+        <strong className="text-primary">🗄 Servidor:</strong> {server}
       </div>
       <div>
-        <strong>🧬 Proceso:</strong> {zomboid || 'Desconocido'}
+        <strong className="text-primary">🧬 Proceso:</strong> {zomboid || 'Desconocido'}
       </div>
       <div>
-        <strong>📊 Memoria:</strong>{' '}
+        <strong className="text-primary">📊 Memoria:</strong>{' '}
         {mem.usagePercent
           ? `${mem.usagePercent.toFixed(1)}% usada (${(mem.used / 1e9).toFixed(1)} GB de ${(mem.total / 1e9).toFixed(1)} GB)`
           : 'No disponible'}
       </div>
       <div>
-        <strong>💾 Base de datos:</strong>{' '}
+        <strong className="text-primary">💾 Base de datos:</strong>{' '}
         {db?.ok ? '✅ OK' : '❌ Error'}
       </div>
-      <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: '#888' }}>
+      <div className="text-xs mt-2 text-muted">
         Última verificación: {checkedAt ? new Date(checkedAt).toLocaleString() : 'n/d'}
       </div>
     </div>

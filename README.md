@@ -58,5 +58,32 @@ pm2 status
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:3131
-- **Servidor PZ Actual**: Puerto 16261 + RCON 27015
-- **Servidor PZ Nuevo**: Puerto 16262 + RCON 27016
+
+---
+
+## 🎨 Motor de Temas
+
+PZWebAdmin incluye un **Motor de Temas Semántico** que permite cambiar la paleta de colores de la interfaz sin modificar el código.
+
+- Selecciona plantillas predefinidas (Classic, Dark Survival, Soft Dark, High Contrast).
+- Personaliza colores individualmente y previsualiza los cambios en tiempo real.
+- Los cambios se guardan localmente en tu navegador.
+
+Para acceder, haz clic en el ícono de engranaje (⚙️) en la barra de navegación superior.
+
+---
+
+## 🛠️ Diagnóstico y Permisos
+
+Si experimentas problemas con permisos de `systemctl` o errores de Git, ejecuta el script de diagnóstico:
+
+```bash
+cd /opt/pzwebadmin
+./scripts/diagnose.sh
+```
+
+Para aplicar los permisos de systemctl al usuario de PM2 (`sysops`) sin pedir password, y solucionar problemas de ownership, ejecuta como root o con sudo:
+
+```bash
+sudo bash /opt/pzwebadmin/scripts/fix-permissions.sh
+```

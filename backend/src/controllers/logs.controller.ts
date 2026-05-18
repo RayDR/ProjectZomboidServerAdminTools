@@ -67,3 +67,10 @@ export const getPlayersFromLogs = async (req: AuthenticatedRequest, res: Respons
     });
   }
 };
+
+export const streamLogsController = (req: AuthenticatedRequest, res: Response) => {
+  const { instanceId } = req.query;
+  import('../services/logs.service').then(service => {
+    service.streamLog(String(instanceId), res);
+  });
+};

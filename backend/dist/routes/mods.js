@@ -55,8 +55,9 @@ const modsController = __importStar(require("../controllers/mods.controller"));
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 // Configure multer for file uploads
+const path_1 = __importDefault(require("path"));
 const upload = (0, multer_1.default)({
-    dest: '/tmp/pz-mod-uploads',
+    dest: path_1.default.join(__dirname, '../../uploads'), // Use local uploads folder
     limits: {
         fileSize: 500 * 1024 * 1024, // 500MB max file size
     }

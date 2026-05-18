@@ -16,13 +16,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getLogStats = exports.clearLogWithBackup = exports.getRecentPlayersFromLog = exports.readLogFile = void 0;
+exports.streamLog = exports.getLogStats = exports.clearLogWithBackup = exports.getRecentPlayersFromLog = exports.readLogFile = void 0;
 const child_process_1 = require("child_process");
 const fs_1 = __importDefault(require("fs"));
 const util_1 = require("util");
 const path_1 = __importDefault(require("path"));
 const readline_1 = __importDefault(require("readline"));
-const instances_service_1 = require("./instances.service");
+const instance_manager_1 = require("../managers/instance.manager");
 const execPromise = (0, util_1.promisify)(child_process_1.exec);
 /**
  * Read the last N lines from either the main or maintenance log.
@@ -30,7 +30,7 @@ const execPromise = (0, util_1.promisify)(child_process_1.exec);
  * @param lines number of lines to read
  */
 const readLogFile = async (instanceId, type, lines) => {
-    const instance = await (0, instances_service_1.getInstanceById)(instanceId);
+    const instance = await instance_manager_1.instanceManager.getInstance(instanceId);
     if (!instance)
         throw new Error(`Instance ${instanceId} not found`);
     let logPath = instance.logPath;
@@ -59,7 +59,7 @@ exports.readLogFile = readLogFile;
  * Parses the main server log and returns players that connected within the last hour.
  */
 const getRecentPlayersFromLog = async (instanceId) => {
-    const instance = await (0, instances_service_1.getInstanceById)(instanceId);
+    const instance = await instance_manager_1.instanceManager.getInstance(instanceId);
     if (!instance)
         throw new Error(`Instance ${instanceId} not found`);
     const logPath = instance.logPath;
@@ -102,7 +102,7 @@ exports.getRecentPlayersFromLog = getRecentPlayersFromLog;
  * @param type 'main' or 'maintenance'
  */
 const clearLogWithBackup = async (instanceId, type) => {
-    const instance = await (0, instances_service_1.getInstanceById)(instanceId);
+    const instance = await instance_manager_1.instanceManager.getInstance(instanceId);
     if (!instance)
         throw new Error(`Instance ${instanceId} not found`);
     const logPath = type === 'main' ? instance.logPath : instance.maintenanceLogPath;
@@ -131,18 +131,21 @@ const clearLogWithBackup = async (instanceId, type) => {
             // Check if existing backup has content
             const backupStats = await fs_1.default.promises.stat(backupPath);
             if (backupStats.size > 0) {
-                return {
-                    success: false,
-                    message: `Backup already exists for today: ${backupFileName}. Only one backup per day is allowed.`
-                };
+                // Backup exists and is valid. We skip creating a NEW backup, but we MUST proceed to clear the log.
+                // We will just return a message saying backup was skipped.
+                /* logic continues to clearing below without error */
             }
             else {
                 // Existing backup is empty, we can overwrite it
                 await fs_1.default.promises.unlink(backupPath);
+                // Create backup
+                await fs_1.default.promises.copyFile(logPath, backupPath);
             }
         }
-        // Create backup
-        await fs_1.default.promises.copyFile(logPath, backupPath);
+        else {
+            // Create backup since it doesn't exist
+            await fs_1.default.promises.copyFile(logPath, backupPath);
+        }
         // Verify backup was created and has content
         const backupStats = await fs_1.default.promises.stat(backupPath);
         if (backupStats.size === 0) {
@@ -169,7 +172,7 @@ exports.clearLogWithBackup = clearLogWithBackup;
  * Get log file size and line count
  */
 const getLogStats = async (instanceId, type) => {
-    const instance = await (0, instances_service_1.getInstanceById)(instanceId);
+    const instance = await instance_manager_1.instanceManager.getInstance(instanceId);
     if (!instance)
         throw new Error(`Instance ${instanceId} not found`);
     const logPath = type === 'main' ? instance.logPath : instance.maintenanceLogPath;
@@ -201,3 +204,50 @@ const getLogStats = async (instanceId, type) => {
     }
 };
 exports.getLogStats = getLogStats;
+/**
+ * Streaming logs via SSE (Server Sent Events)
+ * Uses tail -f to stream new lines
+ */
+const streamLog = (instanceId, res) => {
+    // Use a promise to resolve instance first, but we can't block the stream setup easily in a sync way,
+    // so we do it async and handle errors by sending an SSE error event.
+    instance_manager_1.instanceManager.getInstance(instanceId).then(instance => {
+        if (!instance) {
+            res.write(`event: error\ndata: Instance not found\n\n`);
+            res.end();
+            return;
+        }
+        const logPath = instance.logPath; // Main log only for now
+        // Spawn tail -f -n 0 (start from now, don't send history, history is fetched via REST)
+        // Actually, let's send 0 lines of history to avoid dupes, frontend handles history.
+        const tail = (0, child_process_1.exec)(`tail -f -n 0 ${logPath}`); // Not using -F to keep it simple, might break on rotation but we handle rotation manually
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+        });
+        // Send initial keep-alive
+        res.write(`: connected\n\n`);
+        tail.stdout?.on('data', (data) => {
+            // Data can be multiple lines
+            const lines = data.toString().split('\n');
+            for (const line of lines) {
+                if (!line)
+                    continue;
+                res.write(`data: ${JSON.stringify({ line })}\n\n`);
+            }
+        });
+        tail.stderr?.on('data', (data) => {
+            // Ignored or logged to system
+            console.error('Tail Error:', data);
+        });
+        // Cleanup
+        res.on('close', () => {
+            tail.kill();
+        });
+    }).catch(err => {
+        res.write(`event: error\ndata: ${err.message}\n\n`);
+        res.end();
+    });
+};
+exports.streamLog = streamLog;

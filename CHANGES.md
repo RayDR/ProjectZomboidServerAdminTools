@@ -1,3 +1,19 @@
+# Cambios Realizados - Mejoras de Seguridad y SteamCMD
+
+## Novedades (Reciente)
+- **Seguridad Systemctl**: Se creó el script `scripts/fix-permissions.sh` para conceder permisos NOPASSWD limitados a comandos `systemctl` y `journalctl` sobre servicios `pzomboid-*` para el usuario de la app web (`sysops`).
+- **Seguridad Git**: El script de permisos cambia el ownership de `/opt/pzwebadmin` a `sysops:sysops` para corregir los errores de `dubious ownership`.
+- **Ejecución Segura**: Refactorización profunda en el backend para usar `child_process.execFile` en lugar de `exec`, previniendo inyecciones de comandos en operaciones sobre el sistema.
+- **Integración con SteamCMD**: El backend ahora se comunica directamente con SteamCMD para extraer las ramas (branches) y builds disponibles de Project Zomboid (AppID 380870) de forma dinámica, eliminando dependencias de valores *hardcoded*.
+- **Scripts de Instancia Flexibles**: Nuevo script `setup-instance-steamcmd.sh` que el backend invoca de forma segura para instalar cualquier rama específica de SteamCMD e inicializar sus puertos dinámicamente.
+- **Refresco Visual de Interfaz (UI)**:
+  - Estilos más tenues (tonos amarillos, grises, esmeralda) en la gestión de instancias.
+  - Indicadores de estado visuales en los detalles del servidor (RUNNING/STOPPED).
+  - Manejo de estados de carga al momento de descargar servidores mediante SteamCMD.
+- **Diagnóstico del Sistema**: Se agregó `scripts/diagnose.sh` para revisar instantáneamente usuarios, propiedad de archivos y configuración de servicios.
+
+---
+
 # Cambios Realizados - Sistema Multi-Instancia
 
 ## Resumen

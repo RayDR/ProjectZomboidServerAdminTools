@@ -39,7 +39,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startMonitoring = startMonitoring;
 const os = __importStar(require("os"));
-const instances_service_1 = require("./instances.service");
+const instance_manager_1 = require("../managers/instance.manager");
 const rcon_service_1 = require("./rcon.service");
 const fs = __importStar(require("fs/promises"));
 const MONITOR_INTERVAL_MS = 60 * 1000; // 1 minute
@@ -59,8 +59,8 @@ async function checkResources() {
     if (loadPerCore < CPU_THRESHOLD)
         return;
     console.warn(`[Monitoring] High CPU Load detected: ${load.toFixed(2)} (${(loadPerCore * 100).toFixed(0)}%)`);
-    const instances = await (0, instances_service_1.getInstancesStatus)();
-    const runningInstances = instances.filter(i => i.running);
+    const instances = await instance_manager_1.instanceManager.listInstances();
+    const runningInstances = instances.filter((i) => i.running);
     // If only one instance is running, maybe we shouldn't kill it? 
     // User said: "detener la instancia que no tenga usuarios activos"
     // Does not specify "if multiple running". Just "starts to saturate".
@@ -71,8 +71,8 @@ async function checkResources() {
             const response = await (0, rcon_service_1.runRconCommand)(instance.id, 'players');
             if (response.toLowerCase().includes('players connected (0)') || response.includes('Players connected (0)')) {
                 console.log(`[Monitoring] Stopping idle instance ${instance.name} due to resource saturation.`);
-                await (0, instances_service_1.updateInstance)(instance.id, { shutdownReason: 'Auto-Stop: Resource Saturation (High Load)' });
-                await (0, instances_service_1.stopInstance)(instance.id);
+                await instance_manager_1.instanceManager.updateInstance(instance.id, { shutdownReason: 'Auto-Stop: Resource Saturation (High Load)' });
+                await instance_manager_1.instanceManager.performSystemdAction(instance.id, 'stop');
                 // Append to log
                 const logMsg = `[${new Date().toISOString()}] AUTO-STOP: System Load ${load.toFixed(2)}. Instance ${instance.name} was idle (0 players).\n`;
                 try {

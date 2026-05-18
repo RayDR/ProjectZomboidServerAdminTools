@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import CollapsibleGroup from '../../../components/CollapsibleGroup';
 import { getPlayers } from '../../../services/api';
+import { useTranslation } from '../../../i18n';
 
 export default function Players() {
+  const { t } = useTranslation();
   const [players, setPlayers] = useState([]);
   const [error, setError] = useState(null);
 
@@ -13,7 +15,7 @@ export default function Players() {
   }, []);
 
   return (
-    <CollapsibleGroup title="🧑‍🤝‍🧑 Connected Players">
+    <CollapsibleGroup title={`🧑‍🤝‍🧑 ${t('dashboard.connectedPlayers')}`}>
       {error ? (
         <div style={{ color: 'red' }}>Error: {error}</div>
       ) : (
@@ -23,7 +25,7 @@ export default function Players() {
               <li key={i}>🎮 {name}</li>
             ))
           ) : (
-            <li>No players connected</li>
+            <li>{t('dashboard.noPlayersConnected')}</li>
           )}
         </ul>
       )}

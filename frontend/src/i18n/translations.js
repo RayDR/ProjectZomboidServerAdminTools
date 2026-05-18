@@ -18,7 +18,7 @@ export const translations = {
     active: 'Active',
     none: 'None',
     environment: 'Environment',
-    
+
     // Auth
     login: {
       title: 'PROJECT ZOMBOID',
@@ -31,7 +31,7 @@ export const translations = {
       biohazard: 'BIOHAZARD',
       restrictedAccess: 'RESTRICTED ACCESS',
     },
-    
+
     // Navigation
     nav: {
       dashboard: 'Dashboard',
@@ -45,8 +45,9 @@ export const translations = {
       logout: 'Logout',
       online: 'ONLINE',
       offline: 'OFFLINE',
+      system: 'Monitor',
     },
-    
+
     // Dashboard
     dashboard: {
       title: 'SERVER DASHBOARD',
@@ -87,17 +88,57 @@ export const translations = {
       diskUsage: 'Disk Usage',
       database: 'Database',
       started: 'Started',
+      addInstance: 'Add Instance',
+      instances: 'Server Instances',
+      systemStatus: 'System Status',
+      activeInstances: 'Active Instances',
+      totalPlayers: 'Total Players',
+      cpuLoad: 'CPU Load',
+      connectedPlayers: 'Connected Players',
+      noPlayersConnected: 'No players connected',
     },
-    
+
+    // Instances
+    instances: {
+      state: 'State',
+      running: 'RUNNING',
+      stopped: 'STOPPED',
+      pid: 'PID',
+      lastStop: 'Last Stop Reason',
+      play: 'Play',
+      stop: 'Stop',
+      reboot: 'Reboot',
+      kill: 'FORCE KILL',
+      controls: 'Controls',
+      logs: 'Logs',
+      config: 'Config',
+      console: 'Console',
+      mods: 'Mods',
+      saveConfig: 'Save Config',
+      send: 'Send',
+      rconPlaceholder: 'Enter RCON command...',
+      addTitle: 'Add New Instance',
+      name: 'Instance Name',
+      namePlaceholder: 'My Zombie Server',
+      path: 'Installation Path',
+      pathPlaceholder: '/opt/pzserver-custom',
+      pathHelp: 'Directory where ProjectZomboid is installed.',
+      service: 'Systemd Service Name',
+      servicePlaceholder: 'pzomboid-custom',
+      adding: 'Adding...',
+      add: 'Add Instance',
+      manualBranchId: 'Manual branch id',
+      serverName: 'Server Name',
+      gamePort: 'Game Port',
+      rconPort: 'RCON Port',
+      installing: 'Installing...',
+      createAndInstall: 'Create & Install',
+      instanceStatus: 'Instance Status',
+      backupBeforeDelete: 'Create backup before deleting',
+    },
+
     // Logs
     logs: {
-      title: 'SERVER LOGS',
-      subtitle: 'Real-time log monitoring and analysis',
-      serverLog: 'Server Log',
-      maintenanceLog: 'Maintenance Log',
-      errorLog: 'Error Log',
-      autoScroll: 'Auto-scroll',
-      showErrors: 'Show Errors Only',
       clear: 'Clear Log',
       lines: 'lines',
       searchPlaceholder: 'Search in logs...',
@@ -108,8 +149,11 @@ export const translations = {
       scrollToBottom: 'Scroll to bottom',
       clearLog: 'Clear Log',
       errorLoadingOld: 'Error loading old logs',
+      confirmDownload: 'Do you want to download the logs before clearing? (Date: {{date}})',
+      confirmClear: 'Are you sure you want to clear the logs? This cannot be undone.',
+      showErrors: 'Show Errors Only',
     },
-    
+
     // Mods
     mods: {
       title: 'MOD MANAGER',
@@ -127,7 +171,7 @@ export const translations = {
       actions: 'Actions',
       searchWorkshop: 'Search Workshop...',
     },
-    
+
     // Backups
     backups: {
       title: 'BACKUP MANAGER',
@@ -141,7 +185,7 @@ export const translations = {
       backupCreated: 'Backup created successfully',
       backupRestored: 'Backup restored successfully',
     },
-    
+
     // Config
     config: {
       title: 'SERVER CONFIGURATION',
@@ -154,7 +198,7 @@ export const translations = {
       discardChanges: 'Discard Changes',
       unsavedChanges: 'You have unsaved changes',
     },
-    
+
     // Console
     console: {
       title: 'RCON CONSOLE',
@@ -163,8 +207,22 @@ export const translations = {
       send: 'Send',
       history: 'Command History',
       clear: 'Clear Console',
+      commonCommands: 'Common RCON Commands',
+      listPlayers: 'List online players',
+      saveWorld: 'Save the world',
+      stopServer: 'Stop the server',
+      broadcastMessage: 'Broadcast message',
+      addUser: 'Add user',
+      kickPlayer: 'Kick player',
+      banPlayer: 'Ban player',
+      triggerHelicopter: 'Trigger helicopter',
+      quickCommands: 'Quick Commands',
+      quickPlayers: 'Players',
+      quickSave: 'Save',
+      quickServerInfo: 'Server Info',
+      quickQuit: 'Quit',
     },
-    
+
     // Server Control
     serverControl: {
       title: 'SERVER CONTROL',
@@ -210,9 +268,22 @@ export const translations = {
       resetDefaults: 'Reset to Defaults',
       resetDescription: 'Restore all settings to their original values',
       reset: 'Reset',
+      themeConfig: 'Theme Configuration',
+      selectTemplate: 'Select Template',
+      createColors: 'Create your own colors',
+      predefinedPalette: 'Predefined palette',
+      customColors: 'Custom Colors',
+      primaryAction: 'Primary Action',
+      secondaryAction: 'Secondary',
+      dangerAction: 'Danger',
+      runningStatus: 'Running',
+      warningStatus: 'Warning',
+      done: 'Done',
+      refreshRate: 'Refresh Rate',
+      fontPreviewText: 'The quick brown fox jumps over the lazy dog',
     },
   },
-  
+
   es: {
     // Common
     loading: 'Cargando...',
@@ -232,7 +303,7 @@ export const translations = {
     active: 'Activo',
     none: 'Ninguno',
     environment: 'Entorno',
-    
+
     // Auth
     login: {
       title: 'PROJECT ZOMBOID',
@@ -245,7 +316,7 @@ export const translations = {
       biohazard: 'RIESGO BIOLÓGICO',
       restrictedAccess: 'ACCESO RESTRINGIDO',
     },
-    
+
     // Navigation
     nav: {
       dashboard: 'Panel de Control',
@@ -259,8 +330,9 @@ export const translations = {
       logout: 'Salir',
       online: 'EN LÍNEA',
       offline: 'FUERA DE LÍNEA',
+      system: 'Monitor',
     },
-    
+
     // Dashboard
     dashboard: {
       title: 'PANEL DE CONTROL',
@@ -301,17 +373,57 @@ export const translations = {
       diskUsage: 'Uso del Disco',
       database: 'Base de Datos',
       started: 'Iniciado',
+      addInstance: 'Agregar Instancia',
+      instances: 'Instancias de Servidor',
+      systemStatus: 'Estado del Sistema',
+      activeInstances: 'Instancias Activas',
+      totalPlayers: 'Jugadores Totales',
+      cpuLoad: 'Carga CPU',
+      connectedPlayers: 'Jugadores Conectados',
+      noPlayersConnected: 'No hay jugadores conectados',
     },
-    
+
+    // Instances
+    instances: {
+      state: 'Estado',
+      running: 'EJECUTANDO',
+      stopped: 'DETENIDO',
+      pid: 'PID',
+      lastStop: 'Razón Detención',
+      play: 'Jugar',
+      stop: 'Detener',
+      reboot: 'Reiniciar',
+      kill: 'FORZAR CIERRE',
+      controls: 'Controles',
+      logs: 'Logs',
+      config: 'Config',
+      console: 'Consola',
+      mods: 'Mods',
+      saveConfig: 'Guardar Config',
+      send: 'Enviar',
+      rconPlaceholder: 'Ingresa comando RCON...',
+      addTitle: 'Agregar Nueva Instancia',
+      name: 'Nombre de Instancia',
+      namePlaceholder: 'Mi Servidor Zomboid',
+      path: 'Ruta de Instalación',
+      pathPlaceholder: '/opt/pzserver-custom',
+      pathHelp: 'Directorio donde ProjectZomboid está instalado.',
+      service: 'Nombre Servicio Systemd',
+      servicePlaceholder: 'pzomboid-custom',
+      adding: 'Agregando...',
+      add: 'Agregar Instancia',
+      manualBranchId: 'Branch ID manual',
+      serverName: 'Nombre del Servidor',
+      gamePort: 'Puerto de Juego',
+      rconPort: 'Puerto RCON',
+      installing: 'Instalando...',
+      createAndInstall: 'Crear e Instalar',
+      instanceStatus: 'Estado de Instancia',
+      backupBeforeDelete: 'Crear backup antes de eliminar',
+    },
+
     // Logs
     logs: {
-      title: 'REGISTROS DEL SERVIDOR',
-      subtitle: 'Monitoreo y análisis de registros en tiempo real',
-      serverLog: 'Registro del Servidor',
-      maintenanceLog: 'Registro de Mantenimiento',
-      errorLog: 'Registro de Errores',
-      autoScroll: 'Auto-desplazamiento',
-      showErrors: 'Solo Mostrar Errores',
       clear: 'Limpiar Registro',
       lines: 'líneas',
       searchPlaceholder: 'Buscar en registros...',
@@ -322,8 +434,11 @@ export const translations = {
       scrollToBottom: 'Volver abajo',
       clearLog: 'Limpiar Log',
       errorLoadingOld: 'Error cargando logs antiguos',
+      confirmDownload: '¿Quieres descargar los logs antes de borrarlos? (Fecha: {{date}})',
+      confirmClear: '¿Estás seguro de que quieres borrar los logs? Esta acción no se puede deshacer.',
+      showErrors: 'Solo Errores',
     },
-    
+
     // Mods
     mods: {
       title: 'GESTOR DE MODS',
@@ -341,7 +456,7 @@ export const translations = {
       actions: 'Acciones',
       searchWorkshop: 'Buscar en Workshop...',
     },
-    
+
     // Backups
     backups: {
       title: 'GESTOR DE RESPALDOS',
@@ -355,7 +470,7 @@ export const translations = {
       backupCreated: 'Respaldo creado exitosamente',
       backupRestored: 'Respaldo restaurado exitosamente',
     },
-    
+
     // Config
     config: {
       title: 'CONFIGURACIÓN DEL SERVIDOR',
@@ -368,7 +483,7 @@ export const translations = {
       discardChanges: 'Descartar Cambios',
       unsavedChanges: 'Tienes cambios sin guardar',
     },
-    
+
     // Console
     console: {
       title: 'CONSOLA RCON',
@@ -377,8 +492,22 @@ export const translations = {
       send: 'Enviar',
       history: 'Historial de Comandos',
       clear: 'Limpiar Consola',
+      commonCommands: 'Comandos RCON Comunes',
+      listPlayers: 'Listar jugadores conectados',
+      saveWorld: 'Guardar el mundo',
+      stopServer: 'Detener el servidor',
+      broadcastMessage: 'Enviar mensaje a todos',
+      addUser: 'Agregar usuario',
+      kickPlayer: 'Expulsar jugador',
+      banPlayer: 'Banear jugador',
+      triggerHelicopter: 'Llamar helicóptero',
+      quickCommands: 'Comandos Rápidos',
+      quickPlayers: 'Jugadores',
+      quickSave: 'Guardar',
+      quickServerInfo: 'Info Servidor',
+      quickQuit: 'Salir',
     },
-    
+
     // Server Control
     serverControl: {
       title: 'CONTROL DEL SERVIDOR',
@@ -424,6 +553,19 @@ export const translations = {
       resetDefaults: 'Restaurar Predeterminados',
       resetDescription: 'Restaura todos los ajustes a sus valores originales',
       reset: 'Restaurar',
+      themeConfig: 'Configuración del Tema',
+      selectTemplate: 'Seleccionar Plantilla',
+      createColors: 'Crea tus propios colores',
+      predefinedPalette: 'Paleta predefinida',
+      customColors: 'Colores Personalizados',
+      primaryAction: 'Acción Principal',
+      secondaryAction: 'Secundario',
+      dangerAction: 'Peligro',
+      runningStatus: 'Ejecutando',
+      warningStatus: 'Advertencia',
+      done: 'Listo',
+      refreshRate: 'Tasa de Refresco',
+      fontPreviewText: 'El veloz murciélago hindú comía feliz cardillo y kiwi',
     },
   },
 };

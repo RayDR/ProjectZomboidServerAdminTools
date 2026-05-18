@@ -1,3 +1,4 @@
+
 /**
  * @license MIT
  * © 2025 DomoForge (https://domoforge.com)
@@ -12,105 +13,196 @@
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
  */
 
+
+
 import { Request, Response } from 'express';
-import * as instancesService from '../services/instances.service';
+import { instanceManager } from '../managers/instance.manager';
+import { AppError } from '../utils/errors';
+
+const handleError = (res: Response, error: unknown, defaultMessage: string) => {
+  if (error instanceof AppError) {
+    res.status(error.status).json({
+      success: false, 
+      error: true, 
+      code: error.code, 
+      message: error.message,
+      ...((error as any).conflicts ? { conflicts: (error as any).conflicts } : {})
+    });
+  } else {
+    const msg = error instanceof Error ? error.message : defaultMessage;
+    res.status(500).json({ success: false, error: true, code: 'INTERNAL_ERROR', message: msg });
+  }
+};
+
+/**
+ * Create instance from selected version
+ */
+export const createInstanceFromVersionController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const body = req.body as {
+      branchId?: string;
+      versionPath?: string;
+      name?: string;
+      serverPort?: number;
+      gamePort?: number;
+      rconPort?: number;
+      force?: boolean;
+      allowUnknownBranch?: boolean;
+    };
+
+    const branchId = body.branchId || body.versionPath;
+    const serverPort = Number(body.serverPort ?? body.gamePort);
+    const rconPort = Number(body.rconPort);
+    const name = (body.name || '').trim();
+
+    if (!branchId || !name || !serverPort || !rconPort) {
+      res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
+      return;
+    }
+
+    const instance = await instanceManager.createInstanceFromVersion(branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch));
+    res.json({ success: true, data: instance });
+  } catch (error) {
+    handleError(res, error, 'Failed to create instance');
+  }
+};
+
+/**
+ * Get available PZ server versions
+ */
+export const getAvailableVersionsController = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const versions = await instanceManager.getAvailableVersions();
+    res.json({ success: true, source: versions.source, data: versions.data });
+  } catch (error) {
+    handleError(res, error, 'Failed to get versions');
+  }
+};
+
+
 
 /**
  * Get all server instances
  */
-export const getInstancesController = async (_req: Request, res: Response) => {
+export const getInstancesController = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const instances = await instancesService.getInstancesStatus();
+    const instances = await instanceManager.listInstances();
     res.json({ success: true, data: instances });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get instances'
-    });
+    handleError(res, error, 'Failed to get instances');
   }
 };
 
 /**
  * Start an instance
  */
-export const startInstanceController = async (req: Request, res: Response) => {
+export const startInstanceController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { instanceId } = req.params;
-    const message = await instancesService.startInstance(instanceId);
+    const { instanceId } = req.params as { instanceId: string };
+    const message = await instanceManager.performSystemdAction(instanceId, 'start');
     res.json({ success: true, message });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to start instance'
-    });
+    handleError(res, error, 'Failed to start instance');
   }
 };
 
 /**
  * Stop an instance
  */
-export const stopInstanceController = async (req: Request, res: Response) => {
+export const stopInstanceController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { instanceId } = req.params;
-    const message = await instancesService.stopInstance(instanceId);
+    const { instanceId } = req.params as { instanceId: string };
+    const message = await instanceManager.performSystemdAction(instanceId, 'stop');
     res.json({ success: true, message });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to stop instance'
-    });
+    handleError(res, error, 'Failed to stop instance');
   }
 };
 
 /**
  * Restart an instance
  */
-export const restartInstanceController = async (req: Request, res: Response) => {
+export const restartInstanceController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { instanceId } = req.params;
-    const message = await instancesService.restartInstance(instanceId);
+    const { instanceId } = req.params as { instanceId: string };
+    const message = await instanceManager.performSystemdAction(instanceId, 'restart');
     res.json({ success: true, message });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to restart instance'
-    });
+    handleError(res, error, 'Failed to restart instance');
   }
 };
 
 /**
  * Force Stop an instance
  */
-export const forceStopInstanceController = async (req: Request, res: Response) => {
+export const forceStopInstanceController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { instanceId } = req.params;
-    const message = await instancesService.forceStopInstance(instanceId);
+    const { instanceId } = req.params as { instanceId: string };
+    const message = await instanceManager.performSystemdAction(instanceId, 'kill');
     res.json({ success: true, message });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to force stop instance'
-    });
+    handleError(res, error, 'Failed to force stop instance');
+  }
+};
+
+/**
+ * Delete an instance
+ */
+export const deleteInstanceController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { instanceId } = req.params as { instanceId: string };
+    const { createBackup } = req.body as { createBackup: boolean };
+    await instanceManager.deleteInstance(instanceId, !!createBackup);
+    res.json({ success: true, message: 'Instance deleted successfully' });
+  } catch (error) {
+    handleError(res, error, 'Failed to delete instance');
   }
 };
 
 /**
  * Add a new instance
  */
-export const addInstanceController = async (req: Request, res: Response) => {
+export const addInstanceController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, path, serviceName } = req.body;
-    if (!name || !path || !serviceName) {
-      res.status(400).json({ success: false, error: 'Missing required fields' });
+    const body = req.body as {
+      name?: string;
+      path?: string;
+      serviceName?: string;
+      force?: boolean;
+      branchId?: string;
+      serverPort?: number;
+      gamePort?: number;
+      rconPort?: number;
+      allowUnknownBranch?: boolean;
+    };
+
+    const name = (body.name || '').trim();
+
+    if (body.branchId) {
+      const serverPort = Number(body.serverPort ?? body.gamePort);
+      const rconPort = Number(body.rconPort);
+
+      if (!name || !serverPort || !rconPort) {
+        res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
+        return;
+      }
+
+      const instance = await instanceManager.createInstanceFromVersion(body.branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch));
+      res.json({ success: true, data: instance });
       return;
     }
-    const instance = await instancesService.addInstance(name, path, serviceName);
+
+    const path = body.path;
+    const serviceName = body.serviceName;
+    if (!name || !path || !serviceName) {
+      res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
+      return;
+    }
+
+    const instance = await instanceManager.addInstance(name, path, serviceName, 16261, 0, body.force);
     res.json({ success: true, data: instance });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to add instance'
-    });
+    handleError(res, error, 'Failed to add instance');
   }
 };
 
@@ -118,17 +210,72 @@ export const addInstanceController = async (req: Request, res: Response) => {
 /**
  * Update instance configuration
  */
-export const updateInstanceController = async (req: Request, res: Response) => {
+export const updateInstanceController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { instanceId } = req.params;
+    const { instanceId } = req.params as { instanceId: string };
     const updates = req.body;
-
-    const instance = await instancesService.updateInstance(instanceId, updates);
+    const instance = await instanceManager.updateInstance(instanceId, updates);
     res.json({ success: true, data: instance });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to update instance'
-    });
+    handleError(res, error, 'Failed to update instance');
+  }
+};
+
+/**
+ * Get Mods
+ */
+export const getModsController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { instanceId } = req.params as { instanceId: string };
+    const mods = await instanceManager.getMods(instanceId);
+    res.json({ success: true, data: mods });
+  } catch (error) {
+    handleError(res, error, 'Failed to get mods');
+  }
+};
+
+/**
+ * Add Mod (ID or Workshop)
+ */
+export const addModController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { instanceId } = req.params as { instanceId: string };
+    const body = req.body as { modId?: string; workshopId?: string };
+    const { modId, workshopId } = body;
+    await instanceManager.addMod(instanceId, modId, workshopId);
+    res.json({ success: true, message: 'Mod added successfully' });
+  } catch (error) {
+    handleError(res, error, 'Failed to add mod');
+  }
+};
+
+/**
+ * Upload Mod File
+ */
+export const uploadModController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { instanceId } = req.params as { instanceId: string };
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'No file uploaded' });
+      return;
+    }
+    await instanceManager.installLocalMod(instanceId, file.path, file.originalname);
+    res.json({ success: true, message: 'Mod uploaded successfully' });
+  } catch (error) {
+    handleError(res, error, 'Failed to upload mod');
+  }
+};
+/**
+ * Remove Mod
+ */
+export const removeModController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { instanceId, modId } = req.params as { instanceId: string; modId: string };
+    const { workshopId } = req.query as { workshopId?: string };
+    await instanceManager.removeMod(instanceId, modId, String(workshopId || ''));
+    res.json({ success: true, message: 'Mod removed successfully' });
+  } catch (error) {
+    handleError(res, error, 'Failed to remove mod');
   }
 };

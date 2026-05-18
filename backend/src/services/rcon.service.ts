@@ -15,7 +15,8 @@
 import { exec } from 'child_process';
 import * as fs from 'fs/promises';
 import { config } from '../config/env';
-import { getInstanceById, ServerInstance } from './instances.service';
+import { instanceManager } from '../managers/instance.manager';
+import { ServerInstance } from '../repositories/instances.repository';
 
 /**
  * Helper: Extract RCON password from INI file
@@ -38,7 +39,7 @@ async function getRconPassword(instance: ServerInstance): Promise<string> {
  * Sends a broadcast message using mcrcon.
  */
 export async function sendServerMessage(instanceId: string, message: string): Promise<void> {
-  const instance = await getInstanceById(instanceId);
+  const instance = await instanceManager.getInstance(instanceId);
   if (!instance) throw new Error(`Instance ${instanceId} not found`);
 
   const password = await getRconPassword(instance);
@@ -59,7 +60,7 @@ export async function sendServerMessage(instanceId: string, message: string): Pr
  * Run a raw RCON command using Rcon module (TCP).
  */
 export const runRconCommand = async (instanceId: string, command: string): Promise<string> => {
-  const instance = await getInstanceById(instanceId);
+  const instance = await instanceManager.getInstance(instanceId);
   if (!instance) throw new Error(`Instance ${instanceId} not found`);
 
   const password = await getRconPassword(instance);

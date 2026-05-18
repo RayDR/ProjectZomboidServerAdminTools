@@ -4,7 +4,7 @@
  */
 
 import * as os from 'os';
-import { getInstancesStatus, stopInstance, updateInstance } from './instances.service';
+import { instanceManager } from '../managers/instance.manager';
 import { runRconCommand } from './rcon.service';
 import * as fs from 'fs/promises';
 
@@ -30,8 +30,8 @@ async function checkResources() {
 
     console.warn(`[Monitoring] High CPU Load detected: ${load.toFixed(2)} (${(loadPerCore * 100).toFixed(0)}%)`);
 
-    const instances = await getInstancesStatus();
-    const runningInstances = instances.filter(i => i.running);
+    const instances = await instanceManager.listInstances();
+    const runningInstances = instances.filter((i: any) => i.running);
 
     // If only one instance is running, maybe we shouldn't kill it? 
     // User said: "detener la instancia que no tenga usuarios activos"
@@ -46,8 +46,8 @@ async function checkResources() {
             if (response.toLowerCase().includes('players connected (0)') || response.includes('Players connected (0)')) {
                 console.log(`[Monitoring] Stopping idle instance ${instance.name} due to resource saturation.`);
 
-                await updateInstance(instance.id, { shutdownReason: 'Auto-Stop: Resource Saturation (High Load)' });
-                await stopInstance(instance.id);
+                await instanceManager.updateInstance(instance.id, { shutdownReason: 'Auto-Stop: Resource Saturation (High Load)' });
+                await instanceManager.performSystemdAction(instance.id, 'stop');
 
                 // Append to log
                 const logMsg = `[${new Date().toISOString()}] AUTO-STOP: System Load ${load.toFixed(2)}. Instance ${instance.name} was idle (0 players).\n`;

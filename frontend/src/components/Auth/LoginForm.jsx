@@ -21,17 +21,18 @@ export default function LoginForm({ onLogin }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ padding: '2rem', textAlign: 'center' }}>
-      <img src="/zombielogo.png" alt="Project Zomboid"/>
-      <div>
+    <form onSubmit={handleSubmit} className="p-8 text-center max-w-md mx-auto">
+      <img src="/zombielogo.png" alt="Project Zomboid" className="mx-auto mb-6 max-h-32 object-contain" />
+      <div className="mb-4">
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
+          className="input w-full"
         />
       </div>
-      <button type="submit">
+      <button type="submit" className="btn btn-primary w-full justify-center">
         Login
       </button>
     </form>

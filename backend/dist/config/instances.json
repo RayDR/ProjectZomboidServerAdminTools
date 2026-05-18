@@ -15,7 +15,9 @@
       "db": "/home/pzadmin/Zomboid/Server/pzdesveladitas.db",
       "rconPort": 27015,
       "gamePort": 16261,
-      "isActive": true
+      "isActive": true,
+      "lastUpdated": "2026-05-02T22:44:38.432Z",
+      "shutdownReason": "manual"
     },
     {
       "id": "new",
@@ -32,7 +34,26 @@
       "db": "/home/pzadmin/Zomboid/db/pzdesveladitas-build42.db",
       "rconPort": 27016,
       "gamePort": 16270,
-      "isActive": false
+      "isActive": false,
+      "lastUpdated": "2026-05-02T22:47:05.696Z"
+    },
+    {
+      "id": "test",
+      "name": "Test",
+      "description": "Instancia basada en /opt/pzserver-unstable",
+      "version": "/opt/pzserver-unstable",
+      "serviceName": "pzomboid-test",
+      "pzDir": "/opt/pzserver-unstable",
+      "pzName": "pztest",
+      "logPath": "/opt/pzserver-unstable/logs/server.log",
+      "maintenanceLogPath": "/opt/pzserver-unstable/logs/maintenance.log",
+      "iniPath": "/home/pzadmin/Zomboid/Server/pztest.ini",
+      "savePath": "/home/pzadmin/Zomboid/Saves/Multiplayer/pztest",
+      "db": "/home/pzadmin/Zomboid/db/pztest.db",
+      "rconPort": 27020,
+      "gamePort": 16222,
+      "isActive": false,
+      "lastUpdated": "2026-05-02T22:44:49.384Z"
     }
   ]
 }

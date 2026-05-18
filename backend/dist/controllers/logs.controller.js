@@ -12,8 +12,41 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPlayersFromLogs = exports.getLog = void 0;
+exports.streamLogsController = exports.getPlayersFromLogs = exports.getLog = void 0;
 const logs_service_1 = require("../services/logs.service");
 const logs_service_2 = require("../services/logs.service");
 const getLog = async (req, res) => {
@@ -64,3 +97,10 @@ const getPlayersFromLogs = async (req, res) => {
     }
 };
 exports.getPlayersFromLogs = getPlayersFromLogs;
+const streamLogsController = (req, res) => {
+    const { instanceId } = req.query;
+    Promise.resolve().then(() => __importStar(require('../services/logs.service'))).then(service => {
+        service.streamLog(String(instanceId), res);
+    });
+};
+exports.streamLogsController = streamLogsController;

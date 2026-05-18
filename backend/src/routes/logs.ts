@@ -13,8 +13,11 @@
  */
 
 import { Router } from 'express';
-import { auth } from '../middleware/auth';
+import { auth, auth as verifyToken } from '../middleware/auth';
 import { readLogFile, clearLogWithBackup, getLogStats } from '../services/logs.service';
+import * as logsController from '../controllers/logs.controller';
+
+
 
 const router = Router();
 
@@ -160,6 +163,9 @@ router.get('/stats', auth, async (req, res) => {
     });
   }
 });
+
+// Stream
+router.get('/stream', verifyToken, logsController.streamLogsController);
 
 export default router;
 

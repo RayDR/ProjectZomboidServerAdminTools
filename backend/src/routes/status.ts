@@ -33,7 +33,7 @@ import { Router } from 'express';
 import { exec } from 'child_process';
 import os from 'os';
 import sqlite3 from 'sqlite3';
-import { getInstancesStatus } from '../services/instances.service';
+import { instanceManager } from '../managers/instance.manager';
 
 const router = Router();
 
@@ -67,9 +67,9 @@ const checkDatabase = (): Promise<{ ok: boolean; error?: string }> => {
 router.get('/', async (_req, res) => {
   const memory = checkMemory();
   const dbStatus = await checkDatabase();
-  const instances = await getInstancesStatus();
+  const instances = await instanceManager.listInstances();
 
-  const runningCount = instances.filter(i => i.running).length;
+  const runningCount = instances.filter((i: any) => i.running).length;
 
   res.json({
     system: 'Online',

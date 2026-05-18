@@ -283,7 +283,29 @@ sudo systemctl daemon-reload
 # y eliminar la entrada de la instancia
 ```
 
-## Seguridad
+## Seguridad y Arquitectura
+
+### Separación de Permisos (Users)
+
+PZWebAdmin opera con una política estricta de menor privilegio utilizando dos usuarios de sistema distintos:
+
+1. **`sysops`**: Es el usuario que ejecuta el backend de Node.js (vía PM2). Este usuario **no tiene acceso** a los archivos del servidor de Project Zomboid directamente. Solo puede administrar las instancias de PM2 y utilizar comandos limitados en `sudoers` para invocar a `systemctl` y scripts de setup.
+2. **`pzadmin`**: Es el usuario dueño de los archivos del juego (en `/opt/pzserver-*` y `/home/pzadmin/`). Todas las instancias del juego se ejecutan bajo este usuario.
+
+### Motor de Temas
+
+El frontend utiliza un motor de temas semántico basado en Tailwind CSS. Los colores no están hardcodeados, sino que dependen de variables CSS (ej. `--color-primary`, `--color-surface`).
+
+- Puedes cambiar o crear nuevas plantillas directamente en la interfaz.
+- Los temas se persisten localmente en el navegador (`localStorage`).
+- Las plantillas base están en `frontend/src/styles/index.css`.
+
+### Políticas del Sistema (Sudoers) y Systemd
+
+Para que `sysops` pueda controlar los servicios de `pzadmin`, se usan reglas estrictas en `/etc/sudoers.d/pzwebadmin`. El backend utiliza una capa de servicios (`SystemdService`) que sanitiza las entradas de shell. No hay riesgo de inyección de comandos ya que:
+1. El backend utiliza `execFile` estricto en lugar de `exec`.
+2. Las llamadas al sistema se restringen a comandos como `/usr/bin/systemctl start pzomboid-*`.
+3. Todo nombre de instancia es validado contra la base de datos `instances.json` (Allowlist) en la capa `InstanceManager` para prevenir que se ejecuten comandos sobre servicios del sistema ajenos a PZWebAdmin.
 
 - Cada instancia usa puertos diferentes
 - Los permisos sudoers están limitados a operaciones específicas

@@ -1,0 +1,27 @@
+[
+  {
+    "id": "public",
+    "label": "Public / Stable",
+    "description": "Default stable Project Zomboid server branch",
+    "steamBranch": "",
+    "requiresPassword": false,
+    "default": true,
+    "buildid": ""
+  },
+  {
+    "id": "unstable",
+    "label": "Unstable",
+    "description": "Unstable testing branch",
+    "steamBranch": "unstable",
+    "requiresPassword": false,
+    "buildid": ""
+  },
+  {
+    "id": "b41multiplayer",
+    "label": "Build 41 Multiplayer",
+    "description": "Legacy Build 41 multiplayer branch",
+    "steamBranch": "b41multiplayer",
+    "requiresPassword": false,
+    "buildid": ""
+  }
+]

@@ -14,6 +14,9 @@ export const Button = ({
     primary: 'btn-primary',
     danger: 'btn-danger',
     secondary: 'btn-secondary',
+    surface: 'btn-surface',
+    success: 'btn-success',
+    warning: 'btn-warning',
   };
 
   return (

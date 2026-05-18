@@ -51,7 +51,7 @@ exports.sendServerMessage = sendServerMessage;
 const child_process_1 = require("child_process");
 const fs = __importStar(require("fs/promises"));
 const env_1 = require("../config/env");
-const instances_service_1 = require("./instances.service");
+const instance_manager_1 = require("../managers/instance.manager");
 /**
  * Helper: Extract RCON password from INI file
  */
@@ -73,7 +73,7 @@ async function getRconPassword(instance) {
  * Sends a broadcast message using mcrcon.
  */
 async function sendServerMessage(instanceId, message) {
-    const instance = await (0, instances_service_1.getInstanceById)(instanceId);
+    const instance = await instance_manager_1.instanceManager.getInstance(instanceId);
     if (!instance)
         throw new Error(`Instance ${instanceId} not found`);
     const password = await getRconPassword(instance);
@@ -93,7 +93,7 @@ async function sendServerMessage(instanceId, message) {
  * Run a raw RCON command using Rcon module (TCP).
  */
 const runRconCommand = async (instanceId, command) => {
-    const instance = await (0, instances_service_1.getInstanceById)(instanceId);
+    const instance = await instance_manager_1.instanceManager.getInstance(instanceId);
     if (!instance)
         throw new Error(`Instance ${instanceId} not found`);
     const password = await getRconPassword(instance);

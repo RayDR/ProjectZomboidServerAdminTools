@@ -107,10 +107,10 @@ const Console = () => {
   };
 
   const quickCommands = [
-    { label: 'Players', cmd: 'players' },
-    { label: 'Save', cmd: 'save' },
-    { label: 'Server Info', cmd: 'servermsg "Server Info"' },
-    { label: 'Quit', cmd: 'quit' },
+    { label: t('console.quickPlayers'), cmd: 'players' },
+    { label: t('console.quickSave'), cmd: 'save' },
+    { label: t('console.quickServerInfo'), cmd: 'servermsg "Server Info"' },
+    { label: t('console.quickQuit'), cmd: 'quit' },
   ];
 
   const getOutputColor = (type) => {
@@ -143,7 +143,7 @@ const Console = () => {
       {/* Quick Commands */}
       <Card>
         <h3 className="text-sm font-bold text-zombie-green mb-3 uppercase tracking-wide">
-          Quick Commands
+          {t('console.quickCommands')}
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {quickCommands.map((qc) => (
@@ -268,43 +268,43 @@ const Console = () => {
       <Card className="bg-zombie-gray-dark border-zombie-green">
         <h3 className="text-lg font-bold text-zombie-green mb-3 flex items-center">
           <FaTerminal className="mr-2" />
-          Common RCON Commands
+          {t('console.commonCommands')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-sm">
           <div className="space-y-2">
             <div className="flex justify-between">
               <code className="text-zombie-green">players</code>
-              <span className="text-gray-400">List online players</span>
+              <span className="text-gray-400">{t('console.listPlayers')}</span>
             </div>
             <div className="flex justify-between">
               <code className="text-zombie-green">save</code>
-              <span className="text-gray-400">Save the world</span>
+              <span className="text-gray-400">{t('console.saveWorld')}</span>
             </div>
             <div className="flex justify-between">
               <code className="text-zombie-green">quit</code>
-              <span className="text-gray-400">Stop the server</span>
+              <span className="text-gray-400">{t('console.stopServer')}</span>
             </div>
             <div className="flex justify-between">
               <code className="text-zombie-green">servermsg "text"</code>
-              <span className="text-gray-400">Broadcast message</span>
+              <span className="text-gray-400">{t('console.broadcastMessage')}</span>
             </div>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
               <code className="text-zombie-green">adduser "user" "pwd"</code>
-              <span className="text-gray-400">Add user</span>
+              <span className="text-gray-400">{t('console.addUser')}</span>
             </div>
             <div className="flex justify-between">
               <code className="text-zombie-green">kickuser "user"</code>
-              <span className="text-gray-400">Kick player</span>
+              <span className="text-gray-400">{t('console.kickPlayer')}</span>
             </div>
             <div className="flex justify-between">
               <code className="text-zombie-green">banuser "user"</code>
-              <span className="text-gray-400">Ban player</span>
+              <span className="text-gray-400">{t('console.banPlayer')}</span>
             </div>
             <div className="flex justify-between">
               <code className="text-zombie-green">chopper</code>
-              <span className="text-gray-400">Trigger helicopter</span>
+              <span className="text-gray-400">{t('console.triggerHelicopter')}</span>
             </div>
           </div>
         </div>

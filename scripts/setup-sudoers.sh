@@ -13,14 +13,26 @@ sudo tee "$SUDOERS_FILE" > /dev/null <<EOF
 # PZWebAdmin - Project Zomboid Server Management
 # Allow $PZ_USER to manage the Project Zomboid server without password
 
-# Server control commands
+# Legacy single service commands
 $PZ_USER ALL=(ALL) NOPASSWD: /bin/systemctl start $PZ_SERVICE
 $PZ_USER ALL=(ALL) NOPASSWD: /bin/systemctl stop $PZ_SERVICE
 $PZ_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart $PZ_SERVICE
 $PZ_USER ALL=(ALL) NOPASSWD: /bin/systemctl status $PZ_SERVICE
 
+# Multi-instance commands used by backend (/usr/bin/systemctl with pzomboid-*)
+$PZ_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl start pzomboid-*
+$PZ_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop pzomboid-*
+$PZ_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart pzomboid-*
+$PZ_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl status pzomboid-*
+$PZ_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl is-active pzomboid-*
+$PZ_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl kill pzomboid-*
+$PZ_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl show pzomboid-* --property=* --value
+
 # Backup script
 $PZ_USER ALL=(ALL) NOPASSWD: /opt/pzserver/scripts/backup.sh
+
+# Instance setup script invoked by backend create flow
+$PZ_USER ALL=(ALL) NOPASSWD: /bin/bash /opt/pzwebadmin/scripts/setup-instance-steamcmd.sh *
 
 # Process management (for status checks)
 $PZ_USER ALL=(ALL) NOPASSWD: /usr/bin/pgrep
@@ -43,5 +55,6 @@ fi
 echo ""
 echo "Configured permissions:"
 echo "  - systemctl start/stop/restart/status $PZ_SERVICE"
+echo "  - systemctl start/stop/restart/status/is-active/kill pzomboid-*"
 echo "  - /opt/pzserver/scripts/backup.sh"
 echo "  - pgrep and ps commands for process monitoring"

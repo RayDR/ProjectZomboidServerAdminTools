@@ -16,13 +16,15 @@ import { Router } from 'express';
 import { config } from '../config/env';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { getSystemStats } from '../services/system.service';
 
 const router = Router();
 const startTime = Date.now();
 const version = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')).version;
 
-router.get('/', (_req, res) => {
+router.get('/', async (_req, res) => {
   const uptimeMs = Date.now() - startTime;
+  const systemStats = await getSystemStats();
 
   res.json({
     app: 'PZWebAdmin-API',
@@ -32,9 +34,10 @@ router.get('/', (_req, res) => {
     poweredBy: 'DomoForge (domoforge.com)',
     environment: process.env.NODE_ENV || 'development',
     startedAt: new Date(startTime).toISOString(),
-    uptime: `${Math.floor(uptimeMs / 1000)}s`,
+    apiUptime: `${Math.floor(uptimeMs / 1000)}s`,
     timestamp: new Date().toISOString(),
     message: '🧠 Everything is operational. Keep surviving!',
+    ...systemStats
   });
 });
 
