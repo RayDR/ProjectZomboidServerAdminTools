@@ -11,6 +11,7 @@ import { AppError, NotFoundError, ValidationError, PortConflictError } from '../
 import { PZWEBADMIN_ROOT } from '../config/paths';
 import { config } from '../config/env';
 import { taskManager } from './task.manager';
+import { isWindows, windowsProvisioningUnsupportedMessage } from '../utils/platform';
 
 const execFilePromise = promisify(execFile);
 const SETUP_SCRIPT_MAX_BUFFER = 32 * 1024 * 1024;
@@ -143,7 +144,127 @@ export class InstanceManager {
     this.systemd = systemd;
   }
 
+  private getWindowsPidPath(instance: ServerInstance): string {
+    return path.join(instance.pzDir, 'logs', 'pzwebadmin.pid');
+  }
+
+  private async readWindowsPid(instance: ServerInstance): Promise<string | undefined> {
+    try {
+      const pid = (await fs.readFile(this.getWindowsPidPath(instance), 'utf-8')).trim();
+      return pid || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async writeWindowsPid(instance: ServerInstance, pid: number): Promise<void> {
+    await fs.mkdir(path.join(instance.pzDir, 'logs'), { recursive: true });
+    await fs.writeFile(this.getWindowsPidPath(instance), String(pid), 'utf-8');
+  }
+
+  private async clearWindowsPid(instance: ServerInstance): Promise<void> {
+    try {
+      await fs.rm(this.getWindowsPidPath(instance), { force: true });
+    } catch {
+      // ignore
+    }
+  }
+
+  private async isPidAlive(pid: string): Promise<boolean> {
+    try {
+      process.kill(Number(pid), 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async getWindowsStartScript(instance: ServerInstance): Promise<string> {
+    const candidates = [
+      path.join(instance.pzDir, 'StartServer64.bat'),
+      path.join(instance.pzDir, 'ProjectZomboidServer.bat'),
+      path.join(instance.pzDir, 'start-server.bat')
+    ];
+
+    for (const candidate of candidates) {
+      if (await this.pathExists(candidate)) {
+        return candidate;
+      }
+    }
+
+    throw new AppError(
+      `Windows start script not found in ${instance.pzDir}. Expected one of: StartServer64.bat, ProjectZomboidServer.bat, start-server.bat.`,
+      'START_SCRIPT_NOT_FOUND',
+      400
+    );
+  }
+
+  private async performWindowsAction(instance: ServerInstance, action: SystemdAction): Promise<string> {
+    if (action === 'status' || action === 'is-active') {
+      const pid = await this.readWindowsPid(instance);
+      const running = pid ? await this.isPidAlive(pid) : false;
+      if (!running && pid) {
+        await this.clearWindowsPid(instance);
+      }
+      return running ? 'active' : 'inactive';
+    }
+
+    if (action === 'start') {
+      const currentPid = await this.readWindowsPid(instance);
+      if (currentPid && await this.isPidAlive(currentPid)) {
+        return `Instance ${instance.name} already running`;
+      }
+
+      const scriptPath = await this.getWindowsStartScript(instance);
+      const args = ['/c', scriptPath, '-servername', instance.pzName, '-adminpassword', config.pzRconPassword || 'pzadmin'];
+      const child = spawn('cmd.exe', args, {
+        cwd: instance.pzDir,
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+      if (!child.pid) {
+        throw new AppError('Unable to determine spawned process PID on Windows.', 'START_FAILED', 500);
+      }
+      await this.writeWindowsPid(instance, child.pid);
+      return `Instance ${instance.name} start successful`;
+    }
+
+    if (action === 'stop' || action === 'kill') {
+      const pid = await this.readWindowsPid(instance);
+      if (!pid || !(await this.isPidAlive(pid))) {
+        await this.clearWindowsPid(instance);
+        return `Instance ${instance.name} force stopped (no process found)`;
+      }
+
+      await execFilePromise('taskkill', ['/PID', String(pid), '/T', '/F']);
+      await this.clearWindowsPid(instance);
+      return `Instance ${instance.name} ${action} successful`;
+    }
+
+    if (action === 'restart') {
+      await this.performWindowsAction(instance, 'stop');
+      return this.performWindowsAction(instance, 'start');
+    }
+
+    throw new AppError(`Unsupported Windows action: ${action}`, 'UNSUPPORTED_ACTION', 400);
+  }
+
   private async getProcessUsage(pid: string): Promise<{ processCpuPercent?: number; processMemoryBytes?: number }> {
+    if (isWindows) {
+      try {
+        const psScript = `(Get-Process -Id ${pid} | Select-Object CPU,WorkingSet64 | ConvertTo-Json -Compress)`;
+        const { stdout } = await execFilePromise('powershell', ['-NoProfile', '-Command', psScript]);
+        const data = JSON.parse(String(stdout || '{}')) as { CPU?: number; WorkingSet64?: number };
+        return {
+          processCpuPercent: typeof data.CPU === 'number' ? data.CPU : undefined,
+          processMemoryBytes: typeof data.WorkingSet64 === 'number' ? data.WorkingSet64 : undefined
+        };
+      } catch {
+        return {};
+      }
+    }
+
     try {
       const { stdout } = await execFilePromise('ps', ['-p', pid, '-o', '%cpu=,rss=']);
       const parts = String(stdout || '').trim().split(/\s+/);
@@ -163,6 +284,12 @@ export class InstanceManager {
     }
   }
 
+  private ensureProvisioningPlatform(): void {
+    if (isWindows) {
+      throw new AppError(windowsProvisioningUnsupportedMessage, 'PLATFORM_UNSUPPORTED', 501);
+    }
+  }
+
   public async listInstances(): Promise<Array<ServerInstance & { running: boolean; pid?: string; broken?: boolean; brokenReason?: string; processCpuPercent?: number; processMemoryBytes?: number }>> {
     const instances = await this.repository.readAll();
 
@@ -179,14 +306,17 @@ export class InstanceManager {
       }
 
       try {
-        const { stdout } = await this.systemd.execute('is-active', instance.serviceName);
-        const running = stdout.trim() === 'active';
+        const running = isWindows
+          ? (await this.performWindowsAction(instance, 'is-active')).trim() === 'active'
+          : (await this.systemd.execute('is-active', instance.serviceName)).stdout.trim() === 'active';
 
         let pid: string | undefined = undefined;
         let processUsage: { processCpuPercent?: number; processMemoryBytes?: number } = {};
         if (running) {
           try {
-            pid = await this.systemd.getProperty(instance.serviceName, 'MainPID');
+            pid = isWindows
+              ? await this.readWindowsPid(instance)
+              : await this.systemd.getProperty(instance.serviceName, 'MainPID');
             if (pid === '0') pid = undefined;
             if (pid) {
               processUsage = await this.getProcessUsage(pid);
@@ -246,6 +376,8 @@ export class InstanceManager {
   }
 
   public async createInstanceFromVersion(branchId: string, name: string, gamePort: number, rconPort: number, force: boolean = false, allowUnknownBranch: boolean = false, taskId?: string): Promise<ServerInstance> {
+    this.ensureProvisioningPlatform();
+
     const id = sanitizeInstanceName(name).toLowerCase();
     if (!id) throw new ValidationError('Nombre de instancia inválido / Invalid instance name');
     
@@ -484,6 +616,8 @@ export class InstanceManager {
   }
 
   public async retryInstanceInstallation(instanceId: string, taskId?: string): Promise<ServerInstance> {
+    this.ensureProvisioningPlatform();
+
     const instances = await this.listInstances();
     const listedInstance = instances.find((item) => item.id === instanceId);
     if (!listedInstance) {
@@ -624,6 +758,10 @@ export class InstanceManager {
     }
 
     try {
+      if (isWindows) {
+        return await this.performWindowsAction(instance, action);
+      }
+
       await this.systemd.execute(action, instance.serviceName);
       return `Instance ${instance.name} ${action} successful`;
     } catch (error: any) {
@@ -740,6 +878,8 @@ export class InstanceManager {
   }
 
   public async deleteInstance(instanceId: string, createBackup: boolean, force: boolean = false): Promise<void> {
+    this.ensureProvisioningPlatform();
+
     const instances = await this.repository.readAll();
     const instance = instances.find(i => i.id === instanceId);
     

@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import { assertValidServiceName } from '../utils/instanceName';
 import { SystemCommandError, ValidationError, AppError } from '../utils/errors';
 import { InstancesRepository } from '../repositories/instances.repository';
+import { isWindows, windowsSystemdUnsupportedMessage } from '../utils/platform';
 
 const execFilePromise = promisify(execFile);
 
@@ -27,10 +28,18 @@ export class SystemdService {
     return text.includes('could not be found') || text.includes('unit ') && text.includes('not found');
   }
 
+  private ensureSupportedPlatform(): void {
+    if (isWindows) {
+      throw new AppError(windowsSystemdUnsupportedMessage, 'PLATFORM_UNSUPPORTED', 501);
+    }
+  }
+
   /**
    * Safely execute a systemctl command.
    */
   public async execute(action: SystemdAction, serviceName: string, extraArgs: string[] = []): Promise<{ stdout: string; stderr: string }> {
+    this.ensureSupportedPlatform();
+
     if (!ALLOWED_ACTIONS.has(action)) {
       throw new ValidationError(`Invalid systemd action: ${action}`);
     }
@@ -70,6 +79,8 @@ export class SystemdService {
   }
 
   public async getProperty(serviceName: string, property: string): Promise<string> {
+    this.ensureSupportedPlatform();
+
     assertValidServiceName(serviceName);
     try {
       const args = ['-n', '/usr/bin/systemctl', 'show', serviceName, `--property=${property}`, '--value'];

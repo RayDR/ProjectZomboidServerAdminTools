@@ -1013,7 +1013,7 @@ export const translations = {
       rcon: 'RCON',
       viewProgress: 'Ver progreso',
       waiting: 'En espera',
-      acknowledgeCrash: 'Reconocer fallo',
+      acknowledgeCrash: 'Fallo conocido',
       retry: 'Reintentar',
       failedToAcknowledge: 'No se pudo reconocer el fallo',
       crashed: 'FALLO',

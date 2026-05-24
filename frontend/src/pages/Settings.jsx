@@ -83,6 +83,18 @@ const Settings = () => {
   const previewTitle = localSettings.customTitle?.trim() || 'Project Zomboid Server WebAdmin';
   const previewThemeClass = `settings-preview-theme-${localSettings.theme || 'modern-horror'}`;
   const previewFontClass = `settings-preview-font-${localSettings.font || 'terminal'}`;
+  const previewFontFamily = fonts[localSettings.font]?.family || fonts.terminal.family;
+  const selectedTheme = themes.find((theme) => theme.id === localSettings.theme) || themes[0];
+  const previewStyle = {
+    fontFamily: previewFontFamily,
+    '--preview-primary': selectedTheme?.primary,
+    '--preview-secondary': selectedTheme?.secondary,
+    '--preview-danger': selectedTheme?.danger,
+    '--preview-surface': selectedTheme?.surface,
+    '--preview-background': selectedTheme?.background,
+    '--preview-text': selectedTheme?.text,
+    '--preview-muted': selectedTheme?.muted
+  };
 
   return (
     <div className="space-y-6">
@@ -136,7 +148,10 @@ const Settings = () => {
             </h2>
             <span className="text-xs px-3 py-1 rounded-full border border-border text-muted bg-background">Live</span>
           </div>
-          <div className={`settings-preview-panel ${previewThemeClass} ${previewFontClass} ${localSettings.animations ? 'settings-preview-animations-on' : 'settings-preview-animations-off'}`}>
+          <div
+            className={`settings-preview-panel ${previewThemeClass} ${previewFontClass} ${localSettings.animations ? 'settings-preview-animations-on' : 'settings-preview-animations-off'}`}
+            style={previewStyle}
+          >
             <div className="settings-preview-title-wrap">
               <label className="settings-preview-title-label">
                 {t('settingsInline.customTitle')}
@@ -154,9 +169,11 @@ const Settings = () => {
               {t('settings.previewDescription')}
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <button className="btn btn-primary">{t('settings.primaryAction')}</button>
-              <button className="btn btn-secondary">{t('settings.secondaryAction')}</button>
-              <button className="btn btn-danger">{t('settings.dangerAction')}</button>
+              <button type="button" className="settings-preview-btn settings-preview-btn-primary">{t('settings.primaryAction')}</button>
+              <button type="button" className="settings-preview-btn settings-preview-btn-secondary">{t('settings.secondaryAction')}</button>
+              <button type="button" className="settings-preview-btn settings-preview-btn-danger">{t('settings.dangerAction')}</button>
+              <span className="settings-preview-badge settings-preview-badge-success">{t('settings.runningStatus')}</span>
+              <span className="settings-preview-badge settings-preview-badge-warning">{t('settings.warningStatus')}</span>
             </div>
             <div className="settings-preview-animation-row">
               <span className="settings-preview-animation-label">

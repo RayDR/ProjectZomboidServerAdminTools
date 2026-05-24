@@ -39,6 +39,7 @@ const path = __importStar(require("path"));
 const paths_1 = require("../config/paths");
 const errors_1 = require("../utils/errors");
 const instanceName_1 = require("../utils/instanceName");
+const isWindows = process.platform === 'win32';
 class InstancesRepository {
     constructor(configPath = paths_1.DEFAULT_INSTANCES_CONFIG_PATH) {
         this.configPath = configPath;
@@ -79,10 +80,16 @@ class InstancesRepository {
                 return false;
             if (typeof instance.rconPort !== 'number' || instance.rconPort <= 0 || instance.rconPort > 65535)
                 return false;
-            // Ensure path is within PZ_INSTANCES_ROOT
+            // Ensure path is within configured root on Unix; on Windows allow absolute paths.
             const resolvedPath = path.resolve(instance.pzDir);
-            if (!resolvedPath.startsWith(paths_1.PZ_INSTANCES_ROOT))
-                return false;
+            if (isWindows) {
+                if (!path.isAbsolute(resolvedPath))
+                    return false;
+            }
+            else {
+                if (!resolvedPath.startsWith(paths_1.PZ_INSTANCES_ROOT))
+                    return false;
+            }
             return true;
         }
         catch (e) {

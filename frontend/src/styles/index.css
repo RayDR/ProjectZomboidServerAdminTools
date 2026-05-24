@@ -338,6 +338,56 @@
     color: var(--preview-text);
   }
 
+  .settings-preview-btn {
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .settings-preview-btn-primary {
+    background-color: var(--preview-primary);
+    color: #000;
+  }
+
+  .settings-preview-btn-secondary {
+    background-color: transparent;
+    border-color: var(--preview-secondary);
+    color: var(--preview-secondary);
+  }
+
+  .settings-preview-btn-danger {
+    background-color: var(--preview-danger);
+    color: #fff;
+  }
+
+  .settings-preview-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 1px solid transparent;
+  }
+
+  .settings-preview-badge-success {
+    background: color-mix(in srgb, var(--preview-primary) 18%, transparent);
+    color: var(--preview-primary);
+    border-color: color-mix(in srgb, var(--preview-primary) 45%, transparent);
+  }
+
+  .settings-preview-badge-warning {
+    background: color-mix(in srgb, var(--preview-danger) 18%, transparent);
+    color: var(--preview-danger);
+    border-color: color-mix(in srgb, var(--preview-danger) 45%, transparent);
+  }
+
   .settings-preview-animation-row {
     margin-top: 1rem;
     display: inline-flex;

@@ -18,8 +18,8 @@
   },
   {
     "id": "b41multiplayer",
-    "label": "Build 41 Multiplayer",
-    "description": "Legacy Build 41 multiplayer branch",
+    "label": "Build 41 Multiplayer (Legacy/Deprecated)",
+    "description": "Legacy branch id kept for compatibility. If unavailable upstream, installer will try fallback aliases/public branch.",
     "steamBranch": "b41multiplayer",
     "requiresPassword": false,
     "buildid": ""

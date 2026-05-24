@@ -51,6 +51,7 @@ pm2 status
 - [PM2_GUIDE.md](PM2_GUIDE.md) - Guía completa de PM2
 - [MULTI_INSTANCE.md](MULTI_INSTANCE.md) - Sistema multi-instancia PZ
 - [CHANGES.md](CHANGES.md) - Registro de cambios
+- [WINDOWS_UNIX_COMPATIBILITY.md](WINDOWS_UNIX_COMPATIBILITY.md) - Matriz de compatibilidad y limitaciones Windows/Unix
 
 ---
 
@@ -87,3 +88,14 @@ Para aplicar los permisos de systemctl al usuario de PM2 (`sysops`) sin pedir pa
 ```bash
 sudo bash /opt/pzwebadmin/scripts/fix-permissions.sh
 ```
+
+## 🪟 Compatibilidad Windows
+
+Para preparar un entorno Windows con directivas recomendadas, ejecuta en CMD (idealmente como Administrador):
+
+```bat
+cd \opt\pzwebadmin
+scripts\windows\setup-windows-compat.bat
+```
+
+Consulta [WINDOWS_UNIX_COMPATIBILITY.md](WINDOWS_UNIX_COMPATIBILITY.md) para conocer qué funciones tienen paridad total y qué funciones requieren Linux/WSL2.

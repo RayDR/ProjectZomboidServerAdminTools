@@ -113,24 +113,67 @@ steamcmd_install() {
     fi
 }
 
-if ! steamcmd_install "$STEAM_BRANCH"; then
-    echo "WARN: SteamCMD installation failed for branch '$BRANCH_ID'. Retrying without validate..."
-
-    if [ -n "$STEAM_BRANCH" ]; then
+steamcmd_install_novalidate() {
+    local beta="$1"
+    if [ -n "$beta" ]; then
         sudo -u "$ADMIN_USER" "$STEAMCMD_PATH" \
             +@sSteamCmdForcePlatformType linux \
             +login anonymous \
             +force_install_dir "$INSTALL_DIR" \
-            +app_update 380870 -beta "$STEAM_BRANCH" \
-            +quit || true
+            +app_update 380870 -beta "$beta" \
+            +quit
     else
         sudo -u "$ADMIN_USER" "$STEAMCMD_PATH" \
             +@sSteamCmdForcePlatformType linux \
             +login anonymous \
             +force_install_dir "$INSTALL_DIR" \
             +app_update 380870 \
-            +quit || true
+            +quit
     fi
+}
+
+try_branch_fallbacks() {
+    local requested_branch="$1"
+    local candidates=()
+
+    if [ -n "$requested_branch" ]; then
+        candidates+=("$requested_branch")
+    fi
+
+    # Common legacy aliases for Build 41 branches in case upstream renamed/removed them.
+    if [ "$requested_branch" = "b41multiplayer" ]; then
+        candidates+=("legacy41" "legacy_41" "legacy41multiplayer" "legacy41_mp")
+    fi
+
+    # Always try public as last resort before template copy.
+    candidates+=("")
+
+    local seen="|"
+    for beta in "${candidates[@]}"; do
+        local key="${beta:-public}"
+        case "$seen" in
+            *"|$key|"*) continue ;;
+            *) seen="$seen$key|" ;;
+        esac
+
+        if [ -n "$beta" ]; then
+            echo "WARN: Trying fallback Steam branch '$beta'..."
+        else
+            echo "WARN: Trying fallback Steam public branch..."
+        fi
+
+        if steamcmd_install_novalidate "$beta"; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+if ! steamcmd_install "$STEAM_BRANCH"; then
+    echo "WARN: SteamCMD installation failed for branch '$BRANCH_ID'. Trying fallback branch strategy..."
+
+    try_branch_fallbacks "$STEAM_BRANCH" || true
 
     if [ -x "$INSTALL_DIR/start-server.sh" ]; then
         echo "WARN: SteamCMD returned non-zero but installation appears usable. Continuing."
