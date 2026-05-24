@@ -377,7 +377,7 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
             setIniContent(res.data.data.content);
             setIniPath(res.data.data.path);
         } catch (err) {
-            toast.error(t('error') + ': ' + (err.response?.data?.error || err.message));
+            toast.error(t('error') + ': ' + (err.response?.data?.message || err.message));
         }
     };
 
@@ -386,7 +386,7 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
             await api.put('/config/ini', { instanceId: instance.id, content: iniContent, type: configType });
             toast.success(t('config.saveChanges'));
         } catch (err) {
-            toast.error(t('error') + ': ' + (err.response?.data?.error || err.message));
+            toast.error(t('error') + ': ' + (err.response?.data?.message || err.message));
         }
     };
 
@@ -402,7 +402,7 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
             setRconOutput(prev => [...prev, { type: 'output', text: res.data.output }]);
             setRconCommand('');
         } catch (err) {
-            setRconOutput(prev => [...prev, { type: 'error', text: err.response?.data?.error || 'Command failed' }]);
+            setRconOutput(prev => [...prev, { type: 'error', text: err.response?.data?.message || 'Command failed' }]);
         } finally {
             setConsoleLoading(false);
         }
@@ -440,21 +440,25 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
     // Better approach:
     // Create local state merged with prop
     const [localInstance, setLocalInstance] = useState(instance);
+    const [forceDeletePrompt, setForceDeletePrompt] = useState(false);
 
-    const handleDeleteInstance = async () => {
+    const handleDeleteInstance = async (force = false) => {
         setDeleting(true);
         try {
-            const res = await api.delete(`/instances/${localInstance.id}`, { data: { createBackup } });
+            const res = await api.delete(`/instances/${localInstance.id}`, { data: { createBackup, force } });
             if (res.data.success) {
                 toast.success('Instance deleted successfully');
+                setShowDeleteConfirm(false);
+                setForceDeletePrompt(false);
                 onClose();
-                // We should ideally trigger a refresh on the parent Dashboard
-                // Since onAction is used for start/stop, we can call it with 'refresh' or just rely on auto-polling.
-                // For immediate feedback, we simulate a click on an external refresh button or just let Dashboard poll.
                 if (onAction) onAction({ stopPropagation: () => {} }, localInstance.id, 'refresh');
             }
         } catch (err) {
-            toast.error(err.response?.data?.error || err.message || 'Failed to delete instance');
+            const errorMsg = err.response?.data?.message || err.message || 'Failed to delete instance';
+            toast.error(errorMsg);
+            if (errorMsg.toLowerCase().includes('not found') || errorMsg.toLowerCase().includes('accessible')) {
+                setForceDeletePrompt(true);
+            }
         } finally {
             setDeleting(false);
         }
@@ -783,14 +787,29 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                                         <span className="text-xs text-muted">Respalda archivos .ini, .db y saves de los mundos.</span>
                                     </div>
                                 </div>
+                                {forceDeletePrompt && (
+                                    <div className="bg-danger bg-opacity-10 border border-danger p-3 rounded text-danger text-sm">
+                                        <p className="font-bold">Advertencia: Falló la eliminación estándar.</p>
+                                        <p>La instancia parece estar corrupta o no existe en el sistema. ¿Deseas forzar la eliminación para removerla de la lista del panel?</p>
+                                    </div>
+                                )}
                             </div>
                             <div className="flex justify-end space-x-3">
-                                <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
+                                <Button variant="secondary" onClick={() => {
+                                    setShowDeleteConfirm(false);
+                                    setForceDeletePrompt(false);
+                                }} disabled={deleting}>
                                     Cancelar
                                 </Button>
-                                <Button variant="danger" onClick={handleDeleteInstance} disabled={deleting}>
-                                    {deleting ? 'Eliminando...' : 'Sí, Eliminar Instancia'}
-                                </Button>
+                                {forceDeletePrompt ? (
+                                    <Button variant="danger" onClick={() => handleDeleteInstance(true)} disabled={deleting}>
+                                        {deleting ? 'Eliminando...' : 'Forzar Eliminación'}
+                                    </Button>
+                                ) : (
+                                    <Button variant="danger" onClick={() => handleDeleteInstance(false)} disabled={deleting}>
+                                        {deleting ? 'Eliminando...' : 'Sí, Eliminar Instancia'}
+                                    </Button>
+                                )}
                             </div>
                         </motion.div>
                     </motion.div>

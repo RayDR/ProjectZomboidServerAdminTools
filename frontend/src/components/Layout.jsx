@@ -137,13 +137,12 @@ const Layout = () => {
                 <Link key={item.path} to={item.path}>
                   <motion.div
                     whileHover={{ x: 5, scale: 1.02 }}
-                    className={`sidebar-item flex items-center space-x-3 px-4 py-3 rounded transition-all ${
-                      isActive
-                        ? 'sidebar-item-active bg-sidebarItemActive text-sidebarItemActiveText'
-                        : 'bg-sidebarItem text-sidebarItemText'
-                    }`}
+                    className={`flex items-center space-x-3 px-4 py-3 rounded transition-all ${isActive
+                      ? 'bg-sidebarItemActive text-sidebarItemActiveText shadow-sm'
+                      : 'bg-sidebarItem text-sidebarText hover:bg-surfaceAlt hover:text-primary'
+                      }`}
                   >
-                    <Icon className="text-xl" />
+                    <Icon className={`text-xl ${isActive ? 'text-sidebarItemActiveText' : 'text-sidebarText'}`} />
                     <span className="font-bold uppercase tracking-wide text-sm">
                       {item.label}
                     </span>

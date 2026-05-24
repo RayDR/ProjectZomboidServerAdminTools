@@ -77,7 +77,7 @@ const Dashboard = () => {
         toast.error('Action failed', { id: 'action-toast' });
       }
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Action failed', { id: 'action-toast' });
+      toast.error(err.response?.data?.message || 'Action failed', { id: 'action-toast' });
     }
   };
 
@@ -221,10 +221,15 @@ const Dashboard = () => {
               </div>
 
               {/* Status Badge moved to bottom to not overlap background icon */}
-              <div className="mb-4">
+              <div className="mb-4 flex flex-wrap gap-2">
                 <Badge variant={instance.running ? 'success' : 'error'}>
                   {instance.running ? t('nav.online') : t('nav.offline')}
                 </Badge>
+                {instance.broken && (
+                  <Badge variant="warning">
+                    ⚠️ Corrupta / Rota
+                  </Badge>
+                )}
               </div>
 
               {/* Stats (if running) */}

@@ -18,6 +18,7 @@
 import { Request, Response } from 'express';
 import { instanceManager } from '../managers/instance.manager';
 import { AppError } from '../utils/errors';
+import { taskManager } from '../managers/task.manager';
 
 const handleError = (res: Response, error: unknown, defaultMessage: string) => {
   if (error instanceof AppError) {
@@ -60,8 +61,14 @@ export const createInstanceFromVersionController = async (req: Request, res: Res
       return;
     }
 
-    const instance = await instanceManager.createInstanceFromVersion(branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch));
-    res.json({ success: true, data: instance });
+    const taskId = taskManager.createTask(`Create Instance '${name}'`).id;
+
+    instanceManager.createInstanceFromVersion(branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch), taskId)
+      .catch(err => {
+        console.error(`[instances.from-version] Task ${taskId} failed:`, err);
+      });
+
+    res.status(202).json({ success: true, taskId, message: 'Instance creation started in background.' });
   } catch (error) {
     handleError(res, error, 'Failed to create instance');
   }
@@ -145,14 +152,25 @@ export const forceStopInstanceController = async (req: Request, res: Response): 
   }
 };
 
+export const getTaskController = (req: Request, res: Response): void => {
+  const { taskId } = req.params as { taskId: string };
+  const task = taskManager.getTask(taskId);
+  if (!task) {
+    res.status(404).json({ success: false, error: true, code: 'NOT_FOUND', message: 'Task not found' });
+    return;
+  }
+  res.json({ success: true, data: task });
+};
+
 /**
  * Delete an instance
  */
 export const deleteInstanceController = async (req: Request, res: Response): Promise<void> => {
   try {
     const { instanceId } = req.params as { instanceId: string };
-    const { createBackup } = req.body as { createBackup: boolean };
-    await instanceManager.deleteInstance(instanceId, !!createBackup);
+    const { createBackup, force } = req.body as { createBackup: boolean, force?: boolean };
+    const forceDelete = force || req.query.force === 'true';
+    await instanceManager.deleteInstance(instanceId, !!createBackup, forceDelete);
     res.json({ success: true, message: 'Instance deleted successfully' });
   } catch (error) {
     handleError(res, error, 'Failed to delete instance');
@@ -168,6 +186,10 @@ export const addInstanceController = async (req: Request, res: Response): Promis
       name?: string;
       path?: string;
       serviceName?: string;
+      iniPath?: string;
+      savePath?: string;
+      dbPath?: string;
+      pzName?: string;
       force?: boolean;
       branchId?: string;
       serverPort?: number;
@@ -187,19 +209,38 @@ export const addInstanceController = async (req: Request, res: Response): Promis
         return;
       }
 
-      const instance = await instanceManager.createInstanceFromVersion(body.branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch));
-      res.json({ success: true, data: instance });
+      const taskId = taskManager.createTask(`Create Instance '${name}'`).id;
+      
+      // Do not await, let it run in background
+      instanceManager.createInstanceFromVersion(body.branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch), taskId)
+        .catch(err => {
+          console.error(`[instances.create] Task ${taskId} failed:`, err);
+        });
+
+      res.status(202).json({ success: true, taskId, message: 'Instance creation started in background.' });
       return;
     }
 
     const path = body.path;
-    const serviceName = body.serviceName;
-    if (!name || !path || !serviceName) {
+    const serviceName = (body.serviceName || '').trim();
+    const pzName = body.pzName;
+    if (!name || !path) {
       res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
       return;
     }
 
-    const instance = await instanceManager.addInstance(name, path, serviceName, 16261, 0, body.force);
+    const instance = await instanceManager.addInstance(
+      name,
+      path,
+      serviceName,
+      Number(body.gamePort) || 0,
+      Number(body.rconPort) || 0,
+      body.force,
+      pzName,
+      body.iniPath,
+      body.savePath,
+      body.dbPath
+    );
     res.json({ success: true, data: instance });
   } catch (error) {
     handleError(res, error, 'Failed to add instance');

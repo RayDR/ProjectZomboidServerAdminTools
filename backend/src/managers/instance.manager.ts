@@ -1,21 +1,38 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { InstancesRepository, ServerInstance } from '../repositories/instances.repository';
 import { SystemdService, SystemdAction } from '../services/systemd.service';
 import { getAvailableBuilds, resolveBranchById, resolveSteamCmdPath } from '../services/steamcmd.service';
-import { getServiceName, sanitizeInstanceName } from '../utils/instanceName';
+import { getServiceName, sanitizeInstanceName, assertValidServiceName } from '../utils/instanceName';
 import { AppError, NotFoundError, ValidationError, PortConflictError } from '../utils/errors';
 import { PZWEBADMIN_ROOT } from '../config/paths';
+import { config } from '../config/env';
+import { taskManager } from './task.manager';
 
 const execFilePromise = promisify(execFile);
 const SETUP_SCRIPT_MAX_BUFFER = 32 * 1024 * 1024;
 
+const summarizeSetupOutput = (stderr: string, stdout: string): string => {
+  const merged = `${stderr}\n${stdout}`
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!merged.length) {
+    return 'No diagnostic output captured from setup script.';
+  }
+
+  return merged.slice(-6).join(' | ');
+};
+
 export class InstanceManager {
   private repository: InstancesRepository;
   private systemd: SystemdService;
+
+  private readonly HOME_ROOT = '/home/pzadmin/Zomboid';
 
   private async pathExists(targetPath: string): Promise<boolean> {
     try {
@@ -73,15 +90,73 @@ export class InstanceManager {
     return instance;
   }
 
+  private async parseIniPorts(iniPath: string): Promise<{ gamePort?: number; rconPort?: number }> {
+    try {
+      const iniContent = await fs.readFile(iniPath, 'utf-8');
+      const gpMatch = iniContent.match(/^DefaultPort=(\d+)/m);
+      const rpMatch = iniContent.match(/^RCONPort=(\d+)/m);
+      return {
+        gamePort: gpMatch ? parseInt(gpMatch[1], 10) : undefined,
+        rconPort: rpMatch ? parseInt(rpMatch[1], 10) : undefined
+      };
+    } catch {
+      return {};
+    }
+  }
+
+  private async detectPzNameFromStartup(pathDir: string): Promise<string | undefined> {
+    try {
+      const startupPath = path.join(pathDir, 'start-server.sh');
+      const startup = await fs.readFile(startupPath, 'utf-8');
+      const match = startup.match(/-servername\s+([a-zA-Z0-9_-]+)/);
+      return match ? match[1] : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private isSafeDeletePath(targetPath: string, allowedRoots: string[]): boolean {
+    if (!targetPath) return false;
+    const normalized = path.resolve(targetPath);
+    return allowedRoots.some((root) => {
+      const rootResolved = path.resolve(root);
+      return normalized === rootResolved || normalized.startsWith(`${rootResolved}${path.sep}`);
+    });
+  }
+
+  private async safeRemovePath(targetPath: string, allowedRoots: string[]): Promise<void> {
+    if (!targetPath) return;
+    if (!this.isSafeDeletePath(targetPath, allowedRoots)) {
+      console.warn(`[instances.delete] Skipping unsafe delete path: ${targetPath}`);
+      return;
+    }
+    try {
+      await fs.rm(targetPath, { recursive: true, force: true });
+    } catch (error) {
+      console.warn(`[instances.delete] Failed to remove ${targetPath}: ${error}`);
+    }
+  }
+
   constructor(repository: InstancesRepository, systemd: SystemdService) {
     this.repository = repository;
     this.systemd = systemd;
   }
 
-  public async listInstances(): Promise<Array<ServerInstance & { running: boolean; pid?: string }>> {
+  public async listInstances(): Promise<Array<ServerInstance & { running: boolean; pid?: string; broken?: boolean; brokenReason?: string }>> {
     const instances = await this.repository.readAll();
 
     const statusPromises = instances.map(async (instance) => {
+      let broken = false;
+      let brokenReason;
+      try {
+        if (instance.pzDir) {
+          await fs.access(instance.pzDir);
+        }
+      } catch {
+        broken = true;
+        brokenReason = 'Instalación incompleta o directorio eliminado.';
+      }
+
       try {
         const { stdout } = await this.systemd.execute('is-active', instance.serviceName);
         const running = stdout.trim() === 'active';
@@ -94,9 +169,9 @@ export class InstanceManager {
           } catch (e) { /* ignore */ }
         }
 
-        return { ...instance, running, pid };
+        return { ...instance, running, pid, broken, brokenReason };
       } catch {
-        return { ...instance, running: false };
+        return { ...instance, running: false, broken, brokenReason };
       }
     });
 
@@ -124,7 +199,7 @@ export class InstanceManager {
     return conflicts;
   }
 
-  public async createInstanceFromVersion(branchId: string, name: string, gamePort: number, rconPort: number, force: boolean = false, allowUnknownBranch: boolean = false): Promise<ServerInstance> {
+  public async createInstanceFromVersion(branchId: string, name: string, gamePort: number, rconPort: number, force: boolean = false, allowUnknownBranch: boolean = false, taskId?: string): Promise<ServerInstance> {
     const id = sanitizeInstanceName(name).toLowerCase();
     if (!id) throw new ValidationError('Invalid instance name');
     
@@ -152,41 +227,83 @@ export class InstanceManager {
     console.info(`[instances.create] serviceName=${serviceName}`);
     console.info(`[instances.create] steamcmdPath=${steamCmdInfo.path}`);
     console.info(`[instances.create] steamcmdExists=${steamCmdInfo.exists} steamcmdExecutable=${steamCmdInfo.executable}`);
+    if (taskId) taskManager.addLog(taskId, `[instances.create] SteamCMD path resolved: ${steamCmdInfo.path}`);
 
     if (!steamCmdInfo.exists || !steamCmdInfo.executable) {
+      if (taskId) taskManager.updateTaskStatus(taskId, 'failed', 0, 'SteamCMD is not installed or executable at the configured path.');
       throw new AppError('SteamCMD is not installed or executable at the configured path.', 'STEAMCMD_NOT_FOUND', 500);
     }
 
     try {
-      await execFilePromise('sudo', [
-        '-n',
-        'bash', 
-        path.join(PZWEBADMIN_ROOT, 'scripts/setup-instance-steamcmd.sh'),
-        branchId,
-        resolvedBranch.steamBranch,
-        name,
-        gamePort.toString(),
-        rconPort.toString(),
-        steamCmdInfo.path
-      ], {
-        // SteamCMD can emit large progress output on first installs.
-        maxBuffer: SETUP_SCRIPT_MAX_BUFFER
+      if (taskId) taskManager.addLog(taskId, `[instances.create] Starting SteamCMD installation process...`);
+      if (taskId) taskManager.updateTaskStatus(taskId, 'running', 10);
+
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn('sudo', [
+          '-n',
+          'bash', 
+          path.join(PZWEBADMIN_ROOT, 'scripts/setup-instance-steamcmd.sh'),
+          branchId,
+          resolvedBranch.steamBranch,
+          name,
+          gamePort.toString(),
+          rconPort.toString(),
+          steamCmdInfo.path
+        ], {
+          env: {
+            ...process.env,
+            PZ_TEMPLATE_DIR: config.pzDir
+          }
+        });
+
+        let outputBuffer = '';
+        let errorBuffer = '';
+
+        child.stdout.on('data', (data) => {
+          const str = data.toString();
+          outputBuffer += str;
+          if (taskId) {
+            str.split('\n').filter(Boolean).forEach((line: string) => taskManager.addLog(taskId, line));
+            // Very rough progress tracking based on steamcmd typical output
+            if (str.includes('downloading')) taskManager.updateTaskStatus(taskId, 'running', 50);
+            if (str.includes('verifying')) taskManager.updateTaskStatus(taskId, 'running', 80);
+          }
+        });
+
+        child.stderr.on('data', (data) => {
+          const str = data.toString();
+          errorBuffer += str;
+          if (taskId) {
+            str.split('\n').filter(Boolean).forEach((line: string) => taskManager.addLog(taskId, `ERROR: ${line}`));
+          }
+        });
+
+        child.on('close', (code) => {
+          if (code === 0) {
+            if (taskId) {
+              taskManager.addLog(taskId, `Installation completed successfully.`);
+              taskManager.updateTaskStatus(taskId, 'running', 90);
+            }
+            resolve();
+          } else {
+            const combinedOutput = `${errorBuffer}\n${outputBuffer}`.toLowerCase();
+            const details = summarizeSetupOutput(errorBuffer, outputBuffer);
+            if (taskId) taskManager.addLog(taskId, `[instances.create] setup failed details: ${details}`);
+            if (combinedOutput.includes('permission denied') || combinedOutput.includes('a password is required') || combinedOutput.includes('sudo:')) {
+              reject(new AppError('Permission denied while creating instance. Verify sudoers and filesystem permissions.', 'PERMISSION_DENIED', 403));
+            } else {
+              reject(new AppError(`SteamCMD installation failed for branch '${branchId}' (exit code ${code}). ${details}`, 'INSTALL_FAILED', 500));
+            }
+          }
+        });
+
+        child.on('error', (err) => {
+          reject(new AppError(`Failed to start setup script: ${err.message}`, 'INSTALL_FAILED', 500));
+        });
       });
     } catch (error: any) {
-      const stderr = String(error?.stderr || '');
-      const stdout = String(error?.stdout || '');
-      const combinedOutput = `${stderr}\n${stdout}`.toLowerCase();
-      const message = String(error?.message || '').toLowerCase();
-
-      if (combinedOutput.includes('permission denied') || combinedOutput.includes('a password is required') || message.includes('sudo')) {
-        throw new AppError('Permission denied while creating instance. Verify sudoers and filesystem permissions.', 'PERMISSION_DENIED', 403);
-      }
-
-      if (message.includes('maxbuffer') || message.includes('stdout maxbuffer') || message.includes('stderr maxbuffer')) {
-        throw new AppError('SteamCMD output exceeded process buffer while creating the instance. Increase backend buffer or reduce SteamCMD verbosity.', 'INSTALL_FAILED', 500);
-      }
-
-      throw new AppError(`SteamCMD installation failed for branch '${branchId}'.`, 'INSTALL_FAILED', 500);
+      if (taskId) taskManager.updateTaskStatus(taskId, 'failed', undefined, error.message);
+      throw error;
     }
 
     const newInstance: ServerInstance = {
@@ -211,10 +328,26 @@ export class InstanceManager {
     instances.push(newInstance);
     await this.repository.writeAll(instances);
     
+    if (taskId) {
+      taskManager.addLog(taskId, `Instance registered successfully.`);
+      taskManager.setTaskResult(taskId, newInstance);
+    }
+
     return newInstance;
   }
 
-  public async addInstance(name: string, pathDir: string, serviceName: string, gamePort: number = 16261, rconPort: number = 0, force: boolean = false): Promise<ServerInstance> {
+  public async addInstance(
+    name: string,
+    pathDir: string,
+    serviceName: string,
+    gamePort: number = 0,
+    rconPort: number = 0,
+    force: boolean = false,
+    customPzName?: string,
+    customIniPath?: string,
+    customSavePath?: string,
+    customDbPath?: string
+  ): Promise<ServerInstance> {
     try {
       await fs.access(pathDir);
     } catch {
@@ -228,28 +361,49 @@ export class InstanceManager {
       throw new ValidationError(`Instance with ID ${id} already exists`);
     }
 
+    let detectedPzName = customPzName;
+    if (!detectedPzName && customIniPath) {
+      detectedPzName = path.basename(customIniPath, '.ini');
+    }
+    if (!detectedPzName) {
+      detectedPzName = await this.detectPzNameFromStartup(pathDir);
+    }
+
+    const pzName = detectedPzName || `pz${id}`;
+    let resolvedGamePort = gamePort;
+    let resolvedRconPort = rconPort;
+    const iniPath = customIniPath || `/home/pzadmin/Zomboid/Server/${pzName}.ini`;
+    const parsedPorts = await this.parseIniPorts(iniPath);
+    if (resolvedGamePort === 0 && parsedPorts.gamePort) resolvedGamePort = parsedPorts.gamePort;
+    if (resolvedRconPort === 0 && parsedPorts.rconPort) resolvedRconPort = parsedPorts.rconPort;
+    if (resolvedGamePort === 0) resolvedGamePort = 16261;
+    if (resolvedRconPort === 0) resolvedRconPort = 27015;
+
     if (!force) {
-      const conflicts = await this.checkPortConflicts(gamePort, rconPort);
+      const conflicts = await this.checkPortConflicts(resolvedGamePort, resolvedRconPort);
       if (conflicts.length > 0) {
         throw new PortConflictError(conflicts);
       }
     }
+
+    const resolvedServiceName = serviceName?.trim() || getServiceName(name);
+    assertValidServiceName(resolvedServiceName);
 
     const newInstance: ServerInstance = {
       id,
       name,
       description: `Custom Instance - ${name}`,
       version: "Unknown",
-      serviceName,
+      serviceName: resolvedServiceName,
       pzDir: pathDir,
-      pzName: `pz${id}`,
+      pzName,
       logPath: path.join(pathDir, 'logs', 'server.log'),
       maintenanceLogPath: path.join(pathDir, 'logs', 'maintenance.log'),
-      iniPath: `/home/pzadmin/Zomboid/Server/pz${id}.ini`,
-      savePath: `/home/pzadmin/Zomboid/Saves/Multiplayer/pz${id}`,
-      db: `/home/pzadmin/Zomboid/db/pz${id}.db`,
-      rconPort,
-      gamePort,
+      iniPath,
+      savePath: customSavePath || `/home/pzadmin/Zomboid/Saves/Multiplayer/${pzName}`,
+      db: customDbPath || `/home/pzadmin/Zomboid/db/${pzName}.db`,
+      rconPort: resolvedRconPort,
+      gamePort: resolvedGamePort,
       isActive: false
     };
 
@@ -404,8 +558,14 @@ export class InstanceManager {
     return destPath;
   }
 
-  public async deleteInstance(instanceId: string, createBackup: boolean): Promise<void> {
-    const instance = await this.getInstance(instanceId);
+  public async deleteInstance(instanceId: string, createBackup: boolean, force: boolean = false): Promise<void> {
+    const instances = await this.repository.readAll();
+    const instance = instances.find(i => i.id === instanceId);
+    
+    if (!instance) {
+      if (force) return; // If forcing and not found, we're good
+      throw new NotFoundError(`Instance with ID ${instanceId} not found`);
+    }
     
     // 1. Stop instance if running
     try {
@@ -431,30 +591,41 @@ export class InstanceManager {
       }
     }
 
-    // 3. Delete files safely
+    // 3. Delete files using sudo script first (handles systemd + canonical paths)
     try {
-      if (instance.pzDir && instance.pzDir.startsWith('/opt/pzserver-')) {
-        await execFilePromise('sudo', ['/bin/rm', '-rf', instance.pzDir]);
-      }
+      const scriptPath = path.join(PZWEBADMIN_ROOT, 'scripts', 'setup-instance-steamcmd.sh');
+      await execFilePromise('sudo', [
+        '/bin/bash', scriptPath, '--delete',
+        instance.pzDir, instance.serviceName, instance.pzName,
+        instance.iniPath || '',
+        instance.savePath || '',
+        instance.db || ''
+      ]);
     } catch (e) {
-      console.error(`Failed to delete pzDir: ${e}`);
+      console.error(`Failed to execute delete script: ${e}`);
     }
 
-    try { await fs.rm(instance.iniPath, { force: true }); } catch (e) {}
-    try { await fs.rm(instance.db, { force: true }); } catch (e) {}
-    try { await fs.rm(instance.savePath, { recursive: true, force: true }); } catch (e) {}
+    // 4. Deep cleanup in case custom paths were used or script could not delete all artifacts
+    await this.safeRemovePath(instance.pzDir, ['/opt']);
+    await this.safeRemovePath(instance.iniPath, [path.join(this.HOME_ROOT, 'Server')]);
+    await this.safeRemovePath(instance.savePath, [path.join(this.HOME_ROOT, 'Saves')]);
+    await this.safeRemovePath(instance.db, [path.join(this.HOME_ROOT, 'db')]);
 
-    // 4. Clean systemd
-    try {
-      await execFilePromise('sudo', ['-n', '/usr/bin/systemctl', 'disable', instance.serviceName]);
-      await execFilePromise('sudo', ['-n', '/bin/rm', '-f', `/etc/systemd/system/${instance.serviceName}.service`]);
-      await execFilePromise('sudo', ['-n', '/usr/bin/systemctl', 'daemon-reload']);
-    } catch (e) {
-      console.error(`Failed to clean systemd service: ${e}`);
+    if (instance.pzName && /^[a-zA-Z0-9_-]{1,64}$/.test(instance.pzName)) {
+      const serverDir = path.join(this.HOME_ROOT, 'Server');
+      const cleanupTargets = [
+        path.join(serverDir, `${instance.pzName}_SandboxVars.lua`),
+        path.join(serverDir, `${instance.pzName}_spawnregions.lua`),
+        path.join(serverDir, `${instance.pzName}_spawnpoints.lua`),
+        path.join(serverDir, `${instance.pzName}_zombies.ini`)
+      ];
+
+      for (const target of cleanupTargets) {
+        await this.safeRemovePath(target, [serverDir]);
+      }
     }
 
     // 5. Remove from repository
-    const instances = await this.repository.readAll();
     const filtered = instances.filter(i => i.id !== instance.id);
     await this.repository.writeAll(filtered);
   }

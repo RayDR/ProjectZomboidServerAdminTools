@@ -7,6 +7,56 @@
 set -euo pipefail
 
 # Argumentos
+if [ "${1:-}" = "--delete" ]; then
+    PZDIR=$2
+    SERVICE=$3
+    PZNAME=$4
+    INI_PATH=${5:-}
+    SAVE_PATH=${6:-}
+    DB_PATH=${7:-}
+    ADMIN_USER="pzadmin"
+
+    echo "Deleting instance (PZDIR=$PZDIR, SERVICE=$SERVICE, PZNAME=$PZNAME, INI_PATH=$INI_PATH, SAVE_PATH=$SAVE_PATH, DB_PATH=$DB_PATH)..."
+    
+    # 1. Stop and clean systemd
+    if [ -n "$SERVICE" ] && [[ "$SERVICE" =~ ^pzomboid([@_-][a-zA-Z0-9_-]+)?$ ]]; then
+        sudo systemctl stop "$SERVICE" 2>/dev/null || true
+        sudo systemctl disable "$SERVICE" 2>/dev/null || true
+        sudo rm -f "/etc/systemd/system/$SERVICE.service"
+        sudo systemctl daemon-reload
+    fi
+
+    # 2. Delete PZDIR
+    if [ -n "$PZDIR" ] && [[ "$PZDIR" == /opt/* ]] && [ "$PZDIR" != "/opt" ]; then
+        sudo rm -rf "$PZDIR"
+    fi
+
+    # 3. Delete Configs and Saves (explicit paths if provided)
+    if [ -n "$INI_PATH" ] && [[ "$INI_PATH" == /home/$ADMIN_USER/Zomboid/Server/* ]]; then
+        sudo -u $ADMIN_USER rm -f "$INI_PATH"
+    fi
+    if [ -n "$SAVE_PATH" ] && [[ "$SAVE_PATH" == /home/$ADMIN_USER/Zomboid/Saves/* ]]; then
+        sudo -u $ADMIN_USER rm -rf "$SAVE_PATH"
+    fi
+    if [ -n "$DB_PATH" ] && [[ "$DB_PATH" == /home/$ADMIN_USER/Zomboid/db/* ]]; then
+        sudo -u $ADMIN_USER rm -rf "$DB_PATH"
+    fi
+
+    # 4. Backward compatibility by pzName conventions
+    if [ -n "$PZNAME" ] && [[ "$PZNAME" =~ ^[a-zA-Z0-9_-]{1,64}$ ]]; then
+        sudo -u $ADMIN_USER rm -f "/home/$ADMIN_USER/Zomboid/Server/$PZNAME.ini"
+        sudo -u $ADMIN_USER rm -f "/home/$ADMIN_USER/Zomboid/Server/${PZNAME}_SandboxVars.lua"
+        sudo -u $ADMIN_USER rm -f "/home/$ADMIN_USER/Zomboid/Server/${PZNAME}_spawnregions.lua"
+        sudo -u $ADMIN_USER rm -f "/home/$ADMIN_USER/Zomboid/Server/${PZNAME}_spawnpoints.lua"
+        sudo -u $ADMIN_USER rm -f "/home/$ADMIN_USER/Zomboid/Server/${PZNAME}_zombies.ini"
+        sudo -u $ADMIN_USER rm -rf "/home/$ADMIN_USER/Zomboid/db/$PZNAME.db"
+        sudo -u $ADMIN_USER rm -rf "/home/$ADMIN_USER/Zomboid/Saves/Multiplayer/$PZNAME"
+    fi
+    
+    echo "Deleted successfully."
+    exit 0
+fi
+
 BRANCH_ID=$1
 STEAM_BRANCH=$2
 NAME=$3
@@ -49,22 +99,70 @@ if [ -n "$STEAM_BRANCH" ]; then
     BETA_ARG="-beta $STEAM_BRANCH"
 fi
 
-if ! sudo -u $ADMIN_USER "$STEAMCMD_PATH" +login anonymous +force_install_dir "$INSTALL_DIR" +app_update 380870 $BETA_ARG validate +quit; then
-    echo "WARN: SteamCMD installation failed for branch '$BRANCH_ID'. Falling back to local template copy."
-    TEMPLATE_DIR="${PZ_TEMPLATE_DIR:-/opt/pzserver}"
-
-    if [ ! -d "$TEMPLATE_DIR" ]; then
-        echo "INSTALL_FAILED: SteamCMD failed and template directory '$TEMPLATE_DIR' was not found."
-        exit 7
-    fi
-
-    if command -v rsync >/dev/null 2>&1; then
-        sudo rsync -a --delete "$TEMPLATE_DIR/" "$INSTALL_DIR/"
+steamcmd_install() {
+    local beta="$1"
+    if [ -n "$beta" ]; then
+        sudo -u "$ADMIN_USER" "$STEAMCMD_PATH" \
+            +@sSteamCmdForcePlatformType linux \
+            +login anonymous \
+            +force_install_dir "$INSTALL_DIR" \
+            +app_update 380870 -beta "$beta" validate \
+            +quit
     else
-        sudo cp -a "$TEMPLATE_DIR/." "$INSTALL_DIR/"
+        sudo -u "$ADMIN_USER" "$STEAMCMD_PATH" \
+            +@sSteamCmdForcePlatformType linux \
+            +login anonymous \
+            +force_install_dir "$INSTALL_DIR" \
+            +app_update 380870 validate \
+            +quit
+    fi
+}
+
+if ! steamcmd_install "$STEAM_BRANCH"; then
+    echo "WARN: SteamCMD installation failed for branch '$BRANCH_ID'. Retrying without validate..."
+
+    if [ -n "$STEAM_BRANCH" ]; then
+        sudo -u "$ADMIN_USER" "$STEAMCMD_PATH" \
+            +@sSteamCmdForcePlatformType linux \
+            +login anonymous \
+            +force_install_dir "$INSTALL_DIR" \
+            +app_update 380870 -beta "$STEAM_BRANCH" \
+            +quit || true
+    else
+        sudo -u "$ADMIN_USER" "$STEAMCMD_PATH" \
+            +@sSteamCmdForcePlatformType linux \
+            +login anonymous \
+            +force_install_dir "$INSTALL_DIR" \
+            +app_update 380870 \
+            +quit || true
     fi
 
-    sudo chown -R $ADMIN_USER:$ADMIN_USER "$INSTALL_DIR"
+    if [ -x "$INSTALL_DIR/start-server.sh" ]; then
+        echo "WARN: SteamCMD returned non-zero but installation appears usable. Continuing."
+    else
+        echo "WARN: SteamCMD installation failed and no usable start-server.sh found. Falling back to local template copy."
+        TEMPLATE_DIR="${PZ_TEMPLATE_DIR:-/opt/pzserver}"
+
+        if [ ! -d "$TEMPLATE_DIR" ]; then
+            # Optional secondary fallback for common alternate install path.
+            if [ -d "/opt/pzserver64" ]; then
+                TEMPLATE_DIR="/opt/pzserver64"
+            fi
+        fi
+
+        if [ ! -d "$TEMPLATE_DIR" ]; then
+            echo "INSTALL_FAILED: SteamCMD failed and template directory '$TEMPLATE_DIR' was not found."
+            exit 7
+        fi
+
+        if command -v rsync >/dev/null 2>&1; then
+            sudo rsync -a --delete "$TEMPLATE_DIR/" "$INSTALL_DIR/"
+        else
+            sudo cp -a "$TEMPLATE_DIR/." "$INSTALL_DIR/"
+        fi
+
+        sudo chown -R "$ADMIN_USER":"$ADMIN_USER" "$INSTALL_DIR"
+    fi
 fi
 
 # 3. Crear directorios

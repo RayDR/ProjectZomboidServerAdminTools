@@ -56,6 +56,8 @@ const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const router = (0, express_1.Router)();
 const upload = (0, multer_1.default)({ dest: path_1.default.join(__dirname, '../../uploads') });
+// Tasks monitoring
+router.get('/tasks/:taskId', auth_1.auth, (req, res) => { void instancesController.getTaskController(req, res); });
 // Crear instancia desde versión seleccionada
 router.post('/from-version', auth_1.auth, (req, res) => { void instancesController.createInstanceFromVersionController(req, res); });
 // List available PZ server versions

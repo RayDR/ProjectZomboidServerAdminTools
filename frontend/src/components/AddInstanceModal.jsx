@@ -12,14 +12,23 @@ const AddInstanceModal = ({ isOpen, onClose, onInstanceAdded }) => {
         name: '',
         branch: '',
         gamePort: '',
-        rconPort: ''
+        rconPort: '',
+        path: '',
+        serviceName: '',
+        pzName: '',
+        iniPath: '',
+        savePath: '',
+        dbPath: ''
     });
+    const [mode, setMode] = useState('install');
     const [loading, setLoading] = useState(false);
     const [versions, setVersions] = useState([]);
     const [versionsSource, setVersionsSource] = useState(null);
-    const [versionsError, setVersionsError] = useState('');
+    const [versionsError, setVersionsError] = useState(null);
     const [manualBranch, setManualBranch] = useState('');
     const [fetchingVersions, setFetchingVersions] = useState(false);
+    const [taskId, setTaskId] = useState(null);
+    const [taskProgress, setTaskProgress] = useState({ status: 'pending', progress: 0, logs: [] });
     const [conflictData, setConflictData] = useState(null);
 
     const fetchVersions = async () => {
@@ -62,40 +71,112 @@ const AddInstanceModal = ({ isOpen, onClose, onInstanceAdded }) => {
     useEffect(() => {
         if (isOpen) {
             void fetchVersions();
+            setMode('install');
+            setTaskId(null);
+            setTaskProgress({ status: 'pending', progress: 0, logs: [] });
+            setConflictData(null);
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (!taskId) return;
+        
+        let interval = setInterval(async () => {
+            try {
+                const res = await api.get(`/instances/tasks/${taskId}`);
+                if (res.data && res.data.success) {
+                    const task = res.data.data;
+                    setTaskProgress(task);
+                    if (task.status === 'success') {
+                        clearInterval(interval);
+                        toast.success(t('instances.add'));
+                        onInstanceAdded();
+                        setTimeout(() => {
+                            onClose();
+                            setFormData({ name: '', branch: '', gamePort: '', rconPort: '' });
+                            setConflictData(null);
+                            setTaskId(null);
+                        }, 2000);
+                    } else if (task.status === 'failed') {
+                        clearInterval(interval);
+                        toast.error(`Installation failed: ${task.error || 'Unknown error'}`);
+                        setLoading(false);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to poll task:", err);
+            }
+        }, 2000);
+
+        return () => clearInterval(interval);
+    }, [taskId, onClose, onInstanceAdded, t]);
     const handleSubmit = async (e, force = false) => {
+        const handleConflict = (err) => {
+            if (err.response?.data?.code === 'PORT_CONFLICT') {
+                setConflictData({ conflicts: err.response.data.conflicts || [] });
+                setLoading(false);
+            } else {
+                toast.error(err.response?.data?.message || t('error'));
+                setLoading(false);
+            }
+        };
+
         if (e) e.preventDefault();
         setLoading(true);
         try {
-            const payload = {
-                branchId: versions.length === 0 ? manualBranch.trim() : formData.branch,
-                name: formData.name,
-                serverPort: Number(formData.gamePort),
-                rconPort: Number(formData.rconPort),
-                allowUnknownBranch: versions.length === 0,
-                force
-            };
-            const res = await api.post('/instances/from-version', payload);
+            const isInstallMode = mode === 'install';
+            const payload = isInstallMode
+                ? {
+                    branchId: versions.length === 0 ? manualBranch.trim() : formData.branch,
+                    name: formData.name,
+                    serverPort: Number(formData.gamePort),
+                    rconPort: Number(formData.rconPort),
+                    allowUnknownBranch: versions.length === 0,
+                    force
+                }
+                : {
+                    name: formData.name,
+                    path: formData.path,
+                    serviceName: formData.serviceName || undefined,
+                    pzName: formData.pzName || undefined,
+                    iniPath: formData.iniPath || undefined,
+                    savePath: formData.savePath || undefined,
+                    dbPath: formData.dbPath || undefined,
+                    gamePort: Number(formData.gamePort) || 0,
+                    rconPort: Number(formData.rconPort) || 0,
+                    force
+                };
+            const res = await api.post(isInstallMode ? '/instances/from-version' : '/instances', payload);
             
             if (res.data.success) {
-                toast.success(t('instances.add'));
-                onInstanceAdded();
-                onClose();
-                setFormData({ name: '', branch: '', gamePort: '', rconPort: '' });
-                setConflictData(null);
+                if (isInstallMode && res.status === 202 && res.data.taskId) {
+                    setTaskId(res.data.taskId);
+                    // Do not set loading false yet, we wait for task
+                } else {
+                    toast.success(t('instances.add'));
+                    onInstanceAdded();
+                    onClose();
+                    setFormData({
+                        name: '',
+                        branch: '',
+                        gamePort: '',
+                        rconPort: '',
+                        path: '',
+                        serviceName: '',
+                        pzName: '',
+                        iniPath: '',
+                        savePath: '',
+                        dbPath: ''
+                    });
+                    setConflictData(null);
+                    setLoading(false);
+                }
             } else {
                 toast.error(t('error'));
+                setLoading(false);
             }
         } catch (err) {
-            if (err.response?.data?.code === 'PORT_CONFLICT') {
-                setConflictData({ conflicts: err.response.data.conflicts || [] });
-            } else {
-                toast.error(err.response?.data?.error || err.response?.data?.message || t('error'));
-            }
-        } finally {
-            setLoading(false);
+            handleConflict(err);
         }
     };
 
@@ -111,12 +192,49 @@ const AddInstanceModal = ({ isOpen, onClose, onInstanceAdded }) => {
             >
                 <div className="flex justify-between items-center mb-6 border-b border-border pb-2">
                     <h2 className="text-xl font-bold text-text flex items-center">
-                        <FaServer className="mr-2 text-primary" /> Nueva Instancia (SteamCMD)
+                        <FaServer className="mr-2 text-primary" /> {taskId ? 'Instalando...' : 'Nueva Instancia'}
                     </h2>
-                    <button onClick={onClose} className="text-muted hover:text-text transition-colors"><FaTimes /></button>
+                    {!taskId && <button onClick={onClose} className="text-muted hover:text-text transition-colors"><FaTimes /></button>}
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                {taskId ? (
+                    <div className="space-y-4">
+                        <div className="w-full bg-surfaceAlt rounded-full h-4 overflow-hidden border border-border">
+                            <div className="bg-primary h-4 transition-all duration-500 ease-in-out" style={{ width: `${taskProgress.progress}%` }}></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted">
+                            <span>Status: {taskProgress.status}</span>
+                            <span>{taskProgress.progress}%</span>
+                        </div>
+                        <div className="bg-background border border-border rounded p-3 h-48 overflow-y-auto font-mono text-xs text-text flex flex-col space-y-1" id="install-logs">
+                            {taskProgress.logs.map((log, i) => (
+                                <span key={i} className={log.includes('ERROR') ? 'text-danger' : ''}>{log}</span>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                    <div className="grid grid-cols-2 gap-2 bg-surfaceAlt p-1 rounded-md border border-border">
+                        <button
+                            type="button"
+                            onClick={() => setMode('install')}
+                            className={`px-3 py-2 rounded text-sm font-semibold transition-colors ${mode === 'install' ? 'bg-primary text-white' : 'text-muted hover:text-text'}`}
+                            disabled={loading}
+                        >
+                            Instalar nueva
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMode('import')}
+                            className={`px-3 py-2 rounded text-sm font-semibold transition-colors ${mode === 'import' ? 'bg-primary text-white' : 'text-muted hover:text-text'}`}
+                            disabled={loading}
+                        >
+                            Agregar existente
+                        </button>
+                    </div>
+
+                    {mode === 'install' ? (
+                    <>
                     <div>
                         <label className="block text-muted text-sm mb-1 font-medium">Rama / Build (SteamCMD)</label>
                         {fetchingVersions ? (
@@ -171,6 +289,78 @@ const AddInstanceModal = ({ isOpen, onClose, onInstanceAdded }) => {
                         )}
                         <p className="text-xs text-muted mt-1 opacity-80">Se descargará e instalará usando SteamCMD.</p>
                     </div>
+                    </>
+                    ) : (
+                    <>
+                    <div>
+                        <label className="block text-muted text-sm mb-1 font-medium">Directorio de la instancia</label>
+                        <input
+                            required
+                            disabled={loading}
+                            className="w-full bg-background border border-border rounded p-2.5 text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all disabled:opacity-50"
+                            placeholder="/opt/pzserver-miinstancia"
+                            value={formData.path}
+                            onChange={e => setFormData({ ...formData, path: e.target.value })}
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-muted text-sm mb-1 font-medium">Service Name (opcional)</label>
+                            <input
+                                disabled={loading}
+                                className="w-full bg-background border border-border rounded p-2.5 text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all disabled:opacity-50"
+                                placeholder="pzomboid-miinstancia"
+                                value={formData.serviceName}
+                                onChange={e => setFormData({ ...formData, serviceName: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-muted text-sm mb-1 font-medium">PZ Name (opcional)</label>
+                            <input
+                                disabled={loading}
+                                className="w-full bg-background border border-border rounded p-2.5 text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all disabled:opacity-50"
+                                placeholder="pzmiinstancia"
+                                value={formData.pzName}
+                                onChange={e => setFormData({ ...formData, pzName: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-muted text-sm mb-1 font-medium">INI Path (opcional)</label>
+                        <input
+                            disabled={loading}
+                            className="w-full bg-background border border-border rounded p-2.5 text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all disabled:opacity-50"
+                            placeholder="/home/pzadmin/Zomboid/Server/pzmiinstancia.ini"
+                            value={formData.iniPath}
+                            onChange={e => setFormData({ ...formData, iniPath: e.target.value })}
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-muted text-sm mb-1 font-medium">Save Path (opcional)</label>
+                            <input
+                                disabled={loading}
+                                className="w-full bg-background border border-border rounded p-2.5 text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all disabled:opacity-50"
+                                placeholder="/home/pzadmin/Zomboid/Saves/Multiplayer/pzmiinstancia"
+                                value={formData.savePath}
+                                onChange={e => setFormData({ ...formData, savePath: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-muted text-sm mb-1 font-medium">DB Path (opcional)</label>
+                            <input
+                                disabled={loading}
+                                className="w-full bg-background border border-border rounded p-2.5 text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all disabled:opacity-50"
+                                placeholder="/home/pzadmin/Zomboid/db/pzmiinstancia.db"
+                                value={formData.dbPath}
+                                onChange={e => setFormData({ ...formData, dbPath: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <p className="text-xs text-muted -mt-2">Si no indicas puertos, el backend intentará leerlos del INI.</p>
+                    </>
+                    )}
+
                     <div>
                         <label className="block text-muted text-sm mb-1 font-medium">{t('instances.serverName')}</label>
                         <input
@@ -228,14 +418,21 @@ const AddInstanceModal = ({ isOpen, onClose, onInstanceAdded }) => {
                         <Button 
                             type="submit" 
                             variant="primary"
-                            disabled={loading || fetchingVersions || (versions.length > 0 ? !formData.branch : !manualBranch.trim())}
+                            disabled={
+                                loading ||
+                                (mode === 'install' && (fetchingVersions || (versions.length > 0 ? !formData.branch : !manualBranch.trim()))) ||
+                                (mode === 'import' && !formData.path.trim())
+                            }
                             className="flex items-center"
                         >
-                            {loading ? t('instances.installing') : <><FaCheck className="mr-2" /> {t('instances.createAndInstall')}</>}
+                            {loading
+                                ? (mode === 'install' ? t('instances.installing') : 'Agregando...')
+                                : <><FaCheck className="mr-2" /> {mode === 'install' ? t('instances.createAndInstall') : 'Agregar Instancia'}</>
+                            }
                         </Button>
                     </div>
                 </form>
-
+                )}
             </motion.div>
 
             {conflictData && (

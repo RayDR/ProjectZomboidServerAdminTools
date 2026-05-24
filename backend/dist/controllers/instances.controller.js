@@ -13,9 +13,10 @@
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeModController = exports.uploadModController = exports.addModController = exports.getModsController = exports.updateInstanceController = exports.addInstanceController = exports.deleteInstanceController = exports.forceStopInstanceController = exports.restartInstanceController = exports.stopInstanceController = exports.startInstanceController = exports.getInstancesController = exports.getAvailableVersionsController = exports.createInstanceFromVersionController = void 0;
+exports.removeModController = exports.uploadModController = exports.addModController = exports.getModsController = exports.updateInstanceController = exports.addInstanceController = exports.deleteInstanceController = exports.getTaskController = exports.forceStopInstanceController = exports.restartInstanceController = exports.stopInstanceController = exports.startInstanceController = exports.getInstancesController = exports.getAvailableVersionsController = exports.createInstanceFromVersionController = void 0;
 const instance_manager_1 = require("../managers/instance.manager");
 const errors_1 = require("../utils/errors");
+const task_manager_1 = require("../managers/task.manager");
 const handleError = (res, error, defaultMessage) => {
     if (error instanceof errors_1.AppError) {
         res.status(error.status).json({
@@ -45,8 +46,12 @@ const createInstanceFromVersionController = async (req, res) => {
             res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
             return;
         }
-        const instance = await instance_manager_1.instanceManager.createInstanceFromVersion(branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch));
-        res.json({ success: true, data: instance });
+        const taskId = task_manager_1.taskManager.createTask(`Create Instance '${name}'`).id;
+        instance_manager_1.instanceManager.createInstanceFromVersion(branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch), taskId)
+            .catch(err => {
+            console.error(`[instances.from-version] Task ${taskId} failed:`, err);
+        });
+        res.status(202).json({ success: true, taskId, message: 'Instance creation started in background.' });
     }
     catch (error) {
         handleError(res, error, 'Failed to create instance');
@@ -135,14 +140,25 @@ const forceStopInstanceController = async (req, res) => {
     }
 };
 exports.forceStopInstanceController = forceStopInstanceController;
+const getTaskController = (req, res) => {
+    const { taskId } = req.params;
+    const task = task_manager_1.taskManager.getTask(taskId);
+    if (!task) {
+        res.status(404).json({ success: false, error: true, code: 'NOT_FOUND', message: 'Task not found' });
+        return;
+    }
+    res.json({ success: true, data: task });
+};
+exports.getTaskController = getTaskController;
 /**
  * Delete an instance
  */
 const deleteInstanceController = async (req, res) => {
     try {
         const { instanceId } = req.params;
-        const { createBackup } = req.body;
-        await instance_manager_1.instanceManager.deleteInstance(instanceId, !!createBackup);
+        const { createBackup, force } = req.body;
+        const forceDelete = force || req.query.force === 'true';
+        await instance_manager_1.instanceManager.deleteInstance(instanceId, !!createBackup, forceDelete);
         res.json({ success: true, message: 'Instance deleted successfully' });
     }
     catch (error) {
@@ -164,17 +180,23 @@ const addInstanceController = async (req, res) => {
                 res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
                 return;
             }
-            const instance = await instance_manager_1.instanceManager.createInstanceFromVersion(body.branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch));
-            res.json({ success: true, data: instance });
+            const taskId = task_manager_1.taskManager.createTask(`Create Instance '${name}'`).id;
+            // Do not await, let it run in background
+            instance_manager_1.instanceManager.createInstanceFromVersion(body.branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch), taskId)
+                .catch(err => {
+                console.error(`[instances.create] Task ${taskId} failed:`, err);
+            });
+            res.status(202).json({ success: true, taskId, message: 'Instance creation started in background.' });
             return;
         }
         const path = body.path;
-        const serviceName = body.serviceName;
-        if (!name || !path || !serviceName) {
+        const serviceName = (body.serviceName || '').trim();
+        const pzName = body.pzName;
+        if (!name || !path) {
             res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
             return;
         }
-        const instance = await instance_manager_1.instanceManager.addInstance(name, path, serviceName, 16261, 0, body.force);
+        const instance = await instance_manager_1.instanceManager.addInstance(name, path, serviceName, Number(body.gamePort) || 0, Number(body.rconPort) || 0, body.force, pzName, body.iniPath, body.savePath, body.dbPath);
         res.json({ success: true, data: instance });
     }
     catch (error) {

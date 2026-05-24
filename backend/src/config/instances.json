@@ -16,42 +16,7 @@
       "rconPort": 27015,
       "gamePort": 16261,
       "isActive": true,
-      "lastUpdated": "2026-05-18T02:26:06.277Z",
-      "shutdownReason": "manual"
-    },
-    {
-      "id": "bufcheckpublic",
-      "name": "bufcheckpublic",
-      "description": "Instancia basada en rama public",
-      "version": "public",
-      "serviceName": "pzomboid-bufcheckpublic",
-      "pzDir": "/opt/pzserver-bufcheckpublic",
-      "pzName": "pzbufcheckpublic",
-      "logPath": "/opt/pzserver-bufcheckpublic/logs/server.log",
-      "maintenanceLogPath": "/opt/pzserver-bufcheckpublic/logs/maintenance.log",
-      "iniPath": "/home/pzadmin/Zomboid/Server/pzbufcheckpublic.ini",
-      "savePath": "/home/pzadmin/Zomboid/Saves/Multiplayer/pzbufcheckpublic",
-      "db": "/home/pzadmin/Zomboid/db/pzbufcheckpublic.db",
-      "rconPort": 27461,
-      "gamePort": 16461,
-      "isActive": false
-    },
-    {
-      "id": "bufcheckpublic2",
-      "name": "bufcheckpublic2",
-      "description": "Instancia basada en rama public",
-      "version": "public",
-      "serviceName": "pzomboid-bufcheckpublic2",
-      "pzDir": "/opt/pzserver-bufcheckpublic2",
-      "pzName": "pzbufcheckpublic2",
-      "logPath": "/opt/pzserver-bufcheckpublic2/logs/server.log",
-      "maintenanceLogPath": "/opt/pzserver-bufcheckpublic2/logs/maintenance.log",
-      "iniPath": "/home/pzadmin/Zomboid/Server/pzbufcheckpublic2.ini",
-      "savePath": "/home/pzadmin/Zomboid/Saves/Multiplayer/pzbufcheckpublic2",
-      "db": "/home/pzadmin/Zomboid/db/pzbufcheckpublic2.db",
-      "rconPort": 27462,
-      "gamePort": 16462,
-      "isActive": false
+      "lastUpdated": "2026-05-24T02:17:18.380Z"
     }
   ]
 }

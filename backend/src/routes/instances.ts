@@ -22,6 +22,9 @@ import path from 'path';
 const router = Router();
 const upload = multer({ dest: path.join(__dirname, '../../uploads') });
 
+// Tasks monitoring
+router.get('/tasks/:taskId', auth, (req, res) => { void instancesController.getTaskController(req, res); });
+
 // Crear instancia desde versión seleccionada
 router.post('/from-version', auth, (req, res) => { void instancesController.createInstanceFromVersionController(req, res); });
 // List available PZ server versions

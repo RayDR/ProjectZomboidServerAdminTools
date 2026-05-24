@@ -35,6 +35,8 @@ export default {
         sidebarItemText: 'var(--color-sidebar-item-text)',
         sidebarItemActive: 'var(--color-sidebar-item-active)',
         sidebarItemActiveText: 'var(--color-sidebar-item-active-text)',
+        sidebarItemActive: 'var(--color-sidebar-item-active)',
+        sidebarItemActiveText: 'var(--color-sidebar-item-active-text)',
 
         // Keep zombie palette for backwards compatibility if needed during migration
         zombie: {
