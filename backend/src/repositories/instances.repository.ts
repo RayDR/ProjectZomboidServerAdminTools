@@ -4,6 +4,8 @@ import { PZ_INSTANCES_ROOT, DEFAULT_INSTANCES_CONFIG_PATH } from '../config/path
 import { ValidationError } from '../utils/errors';
 import { validateInstanceName, assertValidServiceName } from '../utils/instanceName';
 
+const isWindows = process.platform === 'win32';
+
 export interface ServerInstance {
   id: string;
   name: string;
@@ -77,9 +79,13 @@ export class InstancesRepository {
       if (typeof instance.gamePort !== 'number' || instance.gamePort <= 0 || instance.gamePort > 65535) return false;
       if (typeof instance.rconPort !== 'number' || instance.rconPort <= 0 || instance.rconPort > 65535) return false;
 
-      // Ensure path is within PZ_INSTANCES_ROOT
+      // Ensure path is within configured root on Unix; on Windows allow absolute paths.
       const resolvedPath = path.resolve(instance.pzDir);
-      if (!resolvedPath.startsWith(PZ_INSTANCES_ROOT)) return false;
+      if (isWindows) {
+        if (!path.isAbsolute(resolvedPath)) return false;
+      } else {
+        if (!resolvedPath.startsWith(PZ_INSTANCES_ROOT)) return false;
+      }
 
       return true;
     } catch (e) {

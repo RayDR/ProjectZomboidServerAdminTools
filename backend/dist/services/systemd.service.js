@@ -5,6 +5,7 @@ const child_process_1 = require("child_process");
 const util_1 = require("util");
 const instanceName_1 = require("../utils/instanceName");
 const errors_1 = require("../utils/errors");
+const platform_1 = require("../utils/platform");
 const execFilePromise = (0, util_1.promisify)(child_process_1.execFile);
 const ALLOWED_ACTIONS = new Set(['start', 'stop', 'restart', 'status', 'is-active', 'kill']);
 class SystemdService {
@@ -19,10 +20,16 @@ class SystemdService {
         const text = `${String(error?.stderr || '')} ${String(error?.stdout || '')}`.toLowerCase();
         return text.includes('could not be found') || text.includes('unit ') && text.includes('not found');
     }
+    ensureSupportedPlatform() {
+        if (platform_1.isWindows) {
+            throw new errors_1.AppError(platform_1.windowsSystemdUnsupportedMessage, 'PLATFORM_UNSUPPORTED', 501);
+        }
+    }
     /**
      * Safely execute a systemctl command.
      */
     async execute(action, serviceName, extraArgs = []) {
+        this.ensureSupportedPlatform();
         if (!ALLOWED_ACTIONS.has(action)) {
             throw new errors_1.ValidationError(`Invalid systemd action: ${action}`);
         }
@@ -55,6 +62,7 @@ class SystemdService {
         }
     }
     async getProperty(serviceName, property) {
+        this.ensureSupportedPlatform();
         (0, instanceName_1.assertValidServiceName)(serviceName);
         try {
             const args = ['-n', '/usr/bin/systemctl', 'show', serviceName, `--property=${property}`, '--value'];

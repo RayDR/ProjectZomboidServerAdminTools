@@ -16,10 +16,11 @@
       "rconPort": 27015,
       "gamePort": 16261,
       "isActive": true,
-      "lastUpdated": "2026-05-24T15:36:34.353Z",
+      "lastUpdated": "2026-05-24T16:05:36.046Z",
       "installationTaskId": "b4625bed-ee94-4123-8b7f-0931c3084ebb",
       "installationStatus": "success",
-      "isLocked": true
+      "isLocked": true,
+      "shutdownReason": "manual"
     },
     {
       "id": "test",
@@ -41,6 +42,27 @@
       "installationStatus": "success",
       "lastUpdated": "2026-05-24T15:05:44.161Z",
       "isLocked": true
+    },
+    {
+      "id": "build41",
+      "name": "Build41",
+      "description": "Instancia basada en rama b41multiplayer",
+      "version": "b41multiplayer",
+      "serviceName": "pzomboid-build41",
+      "pzDir": "/opt/pzserver-build41",
+      "pzName": "pzserver-build41",
+      "logPath": "/opt/pzserver-build41/logs/server.log",
+      "maintenanceLogPath": "/opt/pzserver-build41/logs/maintenance.log",
+      "iniPath": "/home/pzadmin/Zomboid/Server/pzserver-build41.ini",
+      "savePath": "/home/pzadmin/Zomboid/Saves/Multiplayer/pzserver-build41",
+      "db": "/home/pzadmin/Zomboid/db/pzserver-build41.db",
+      "rconPort": 27015,
+      "gamePort": 16261,
+      "isActive": false,
+      "isLocked": false,
+      "installationTaskId": "e2a2e551-4627-492e-9350-75480a70faff",
+      "installationStatus": "success",
+      "lastUpdated": "2026-05-24T16:05:40.977Z"
     }
   ]
 }

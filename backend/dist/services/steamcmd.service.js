@@ -218,11 +218,6 @@ const mergeBranchOptions = (steamOptions, fallbackOptions) => {
             buildid: steam.buildid || fallback?.buildid
         });
     }
-    for (const fallback of fallbackOptions) {
-        if (!byId.has(fallback.id)) {
-            byId.set(fallback.id, fallback);
-        }
-    }
     const merged = Array.from(byId.values());
     const defaultIndex = merged.findIndex((branch) => branch.default);
     if (defaultIndex > 0) {
@@ -239,6 +234,18 @@ const resolveBranchById = async (branchId, options) => {
     const catalog = await (0, exports.getAvailableBuilds)();
     const resolved = catalog.data.find((branch) => branch.id === normalizedId);
     if (!resolved) {
+        // Backward-compat alias resolution for legacy branch IDs that may have been renamed upstream.
+        const legacyPatterns = {
+            b41multiplayer: [/legacy.*41/i, /^legacy41/i, /\b41\b/i]
+        };
+        const candidates = legacyPatterns[normalizedId];
+        if (candidates && catalog.data.length > 0) {
+            const alias = catalog.data.find((branch) => candidates.some((pattern) => pattern.test(branch.id)));
+            if (alias) {
+                console.warn(`[versions] Branch '${normalizedId}' is deprecated/unavailable. Using '${alias.id}' as compatibility alias.`);
+                return alias;
+            }
+        }
         if (options?.allowUnknown) {
             if (!/^[a-zA-Z0-9._-]{1,64}$/.test(normalizedId)) {
                 throw new errors_1.AppError(`Branch '${normalizedId}' has an invalid format.`, 'INVALID_BRANCH', 400);
