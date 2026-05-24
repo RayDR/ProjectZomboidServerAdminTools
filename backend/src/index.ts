@@ -29,6 +29,8 @@ import messageRoutes from './routes/messages';
 import serverRoutes from './routes/server';
 import modsRoutes from './routes/mods';
 import instancesRoutes from './routes/instances';
+import userSettingsRoutes from './routes/user-settings';
+import usersRoutes from './routes/users';
 import { auth } from './middleware/auth';
 import * as instancesController from './controllers/instances.controller';
 
@@ -49,6 +51,8 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/server', serverRoutes);
 app.use('/api/mods', modsRoutes);
 app.get('/api/versions', auth, (req, res) => { void instancesController.getAvailableVersionsController(req, res); });
+app.use('/api/user-settings', userSettingsRoutes);
+app.use('/api/users', usersRoutes);
 app.use('/api/instances', instancesRoutes);
 
 import { startMonitoring } from './services/monitoring.service';

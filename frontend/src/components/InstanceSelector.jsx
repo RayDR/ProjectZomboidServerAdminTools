@@ -67,7 +67,7 @@ const InstanceSelector = ({ onInstanceChange }) => {
       <div className="space-y-4">
         <div className="flex items-center gap-3 border-b border-zombie-green/30 pb-3">
           <FaServer className="text-zombie-green text-xl" />
-          <h3 className="text-xl font-bold text-terminal-text font-zombie">
+          <h3 className="text-xl font-bold text-text font-title">
             INSTANCIAS DE SERVIDOR
           </h3>
         </div>
@@ -108,7 +108,7 @@ const InstanceSelector = ({ onInstanceChange }) => {
                 <div className="space-y-3">
                   {/* Instance name and version */}
                   <div>
-                    <h4 className="text-lg font-bold text-terminal-text font-zombie">
+                    <h4 className="text-lg font-bold text-text font-title">
                       {instance.name}
                     </h4>
                     <p className="text-sm text-gray-400">{instance.description}</p>

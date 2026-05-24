@@ -216,11 +216,7 @@ const Config = () => {
   }
 
   const displayConfig = filteredConfig();
-  
-  // Debug: ver estructura del config
-  console.log('Config structure:', Object.keys(config));
-  console.log('Full config:', config);
-  
+
   // Obtener información útil del servidor - buscar en todas las categorías posibles
   let serverSettings = config[''] || config['General'] || config['Server'] || {};
   
@@ -245,7 +241,7 @@ const Config = () => {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-terminal-text text-shadow-terminal font-zombie mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-text text-shadow-terminal font-title mb-2">
             <GlitchText>{t('config.title')}</GlitchText>
           </h1>
           <p className="text-zombie-green text-sm sm:text-base">
@@ -314,7 +310,7 @@ const Config = () => {
         
         <Card>
           <div className="text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-terminal-text">
+            <div className="text-2xl sm:text-3xl font-bold text-text">
               {isPublic ? '🌍' : '🔒'} {serverType}
             </div>
             <div className="text-xs text-gray-400 uppercase tracking-wide mt-1">
@@ -325,7 +321,7 @@ const Config = () => {
         
         <Card>
           <div className="text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-terminal-text">
+            <div className="text-2xl sm:text-3xl font-bold text-text">
               {totalMods} 📦
             </div>
             <div className="text-xs text-gray-400 uppercase tracking-wide mt-1">
@@ -336,10 +332,10 @@ const Config = () => {
         
         <Card>
           <div className="text-center">
-            <div className="text-sm sm:text-base font-bold text-terminal-text">
+            <div className="text-sm sm:text-base font-bold text-text">
               Game: {defaultPort}
             </div>
-            <div className="text-sm sm:text-base font-bold text-terminal-text mt-1">
+            <div className="text-sm sm:text-base font-bold text-text mt-1">
               RCON: {rconPort}
             </div>
             <div className="text-xs text-gray-400 uppercase tracking-wide mt-1">Ports</div>
@@ -387,7 +383,7 @@ const Config = () => {
                     <div key={key} className="border-b border-gray-700 pb-3 last:border-0">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex-1">
-                          <label className="block font-mono text-sm font-bold text-terminal-text mb-1">
+                          <label className="block font-mono text-sm font-bold text-text mb-1">
                             {key}
                           </label>
                           {description && (

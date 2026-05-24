@@ -16,11 +16,28 @@ import Backups from './pages/Backups';
 import Config from './pages/Config';
 import Console from './pages/Console';
 import Settings from './pages/Settings';
+import Users from './pages/Users';
+import ChangePassword from './pages/ChangePassword';
 
 // Protected route component
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" replace />;
+  const mustChangePassword = localStorage.getItem('mustChangePassword') === '1';
+  const path = window.location.pathname;
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (mustChangePassword && path !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+
+  if (!mustChangePassword && path === '/change-password') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
 };
 
 function App() {
@@ -71,6 +88,8 @@ function App() {
               <Route path="config" element={<Config />} />
               <Route path="console" element={<Console />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="users" element={<Users />} />
+              <Route path="change-password" element={<ChangePassword />} />
             </Route>
           </Routes>
         </BrowserRouter>

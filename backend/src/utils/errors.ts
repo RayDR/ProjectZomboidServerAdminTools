@@ -38,7 +38,7 @@ export class SystemCommandError extends AppError {
 export class PortConflictError extends AppError {
   public conflicts: string[];
   constructor(conflicts: string[]) {
-    super('Port Conflict Detected', 'PORT_CONFLICT', 409);
+    super('Conflicto de puertos', 'PORT_CONFLICT', 409);
     this.conflicts = conflicts;
   }
 }

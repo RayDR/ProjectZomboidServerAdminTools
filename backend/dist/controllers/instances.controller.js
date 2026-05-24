@@ -13,10 +13,11 @@
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeModController = exports.uploadModController = exports.addModController = exports.getModsController = exports.updateInstanceController = exports.addInstanceController = exports.deleteInstanceController = exports.getTaskController = exports.forceStopInstanceController = exports.restartInstanceController = exports.stopInstanceController = exports.startInstanceController = exports.getInstancesController = exports.getAvailableVersionsController = exports.createInstanceFromVersionController = void 0;
+exports.removeModController = exports.uploadModController = exports.addModController = exports.getModsController = exports.updateInstanceController = exports.addInstanceController = exports.deleteInstanceController = exports.getTaskController = exports.forceStopInstanceController = exports.restartInstanceController = exports.stopInstanceController = exports.startInstanceController = exports.getInstancesController = exports.getAvailableVersionsController = exports.getTasksController = exports.retryInstanceInstallController = exports.createInstanceFromVersionController = void 0;
 const instance_manager_1 = require("../managers/instance.manager");
 const errors_1 = require("../utils/errors");
 const task_manager_1 = require("../managers/task.manager");
+const instance_install_queue_manager_1 = require("../managers/instance-install-queue.manager");
 const handleError = (res, error, defaultMessage) => {
     if (error instanceof errors_1.AppError) {
         res.status(error.status).json({
@@ -43,21 +44,67 @@ const createInstanceFromVersionController = async (req, res) => {
         const rconPort = Number(body.rconPort);
         const name = (body.name || '').trim();
         if (!branchId || !name || !serverPort || !rconPort) {
-            res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
+            res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Faltan campos obligatorios / Missing required fields' });
             return;
         }
-        const taskId = task_manager_1.taskManager.createTask(`Create Instance '${name}'`).id;
-        instance_manager_1.instanceManager.createInstanceFromVersion(branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch), taskId)
-            .catch(err => {
-            console.error(`[instances.from-version] Task ${taskId} failed:`, err);
+        const { task, queueLength } = instance_install_queue_manager_1.instanceInstallQueueManager.enqueue({
+            branchId,
+            name,
+            gamePort: serverPort,
+            rconPort,
+            force: body.force,
+            allowUnknownBranch: Boolean(body.allowUnknownBranch)
         });
-        res.status(202).json({ success: true, taskId, message: 'Instance creation started in background.' });
+        res.status(202).json({
+            success: true,
+            taskId: task.id,
+            task,
+            queueLength,
+            message: queueLength > 1
+                ? `Instance creation queued. ${queueLength - 1} task(s) ahead.`
+                : 'Instance creation started.'
+        });
     }
     catch (error) {
         handleError(res, error, 'Failed to create instance');
     }
 };
 exports.createInstanceFromVersionController = createInstanceFromVersionController;
+const retryInstanceInstallController = async (req, res) => {
+    try {
+        const { instanceId } = req.params;
+        if (!instanceId) {
+            res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Instance ID is required' });
+            return;
+        }
+        const { task, queueLength } = instance_install_queue_manager_1.instanceInstallQueueManager.enqueueRetry(instanceId);
+        res.status(202).json({
+            success: true,
+            taskId: task.id,
+            task,
+            queueLength,
+            message: queueLength > 1
+                ? `Instance retry queued. ${queueLength - 1} task(s) ahead.`
+                : 'Instance retry started.'
+        });
+    }
+    catch (error) {
+        handleError(res, error, 'Failed to retry instance installation');
+    }
+};
+exports.retryInstanceInstallController = retryInstanceInstallController;
+const getTasksController = (req, res) => {
+    const kindQuery = typeof req.query.kind === 'string' ? req.query.kind.trim() : '';
+    const activeOnly = req.query.activeOnly === 'true';
+    const limit = Number(req.query.limit);
+    const tasks = task_manager_1.taskManager.getAllTasks({
+        kind: kindQuery === 'instance_install' ? 'instance_install' : undefined,
+        activeOnly,
+        limit: Number.isFinite(limit) ? limit : undefined
+    });
+    res.json({ success: true, data: tasks });
+};
+exports.getTasksController = getTasksController;
 /**
  * Get available PZ server versions
  */
@@ -77,7 +124,41 @@ exports.getAvailableVersionsController = getAvailableVersionsController;
 const getInstancesController = async (_req, res) => {
     try {
         const instances = await instance_manager_1.instanceManager.listInstances();
-        res.json({ success: true, data: instances });
+        const activeInstallTasks = task_manager_1.taskManager.getAllTasks({ kind: 'instance_install', activeOnly: true, limit: 200 });
+        const provisioned = activeInstallTasks
+            .filter((task) => task?.metadata?.instanceId)
+            .map((task) => {
+            const metadata = task.metadata || {};
+            const installationStatus = task.status === 'running' ? 'installing' : 'queued';
+            const queuePosition = typeof metadata.queuePosition === 'number' ? metadata.queuePosition : 0;
+            const instanceId = String(metadata.instanceId || '');
+            return {
+                id: instanceId,
+                name: metadata.instanceName || instanceId,
+                description: `Provisioning from branch ${metadata.branchId || 'unknown'}`,
+                version: metadata.branchId || 'unknown',
+                serviceName: `pzomboid-${instanceId}`,
+                pzDir: `/opt/pzserver-${instanceId}`,
+                pzName: `pzserver-${instanceId}`,
+                logPath: `/opt/pzserver-${instanceId}/logs/server.log`,
+                maintenanceLogPath: `/opt/pzserver-${instanceId}/logs/maintenance.log`,
+                iniPath: `/home/pzadmin/Zomboid/Server/pzserver-${instanceId}.ini`,
+                savePath: `/home/pzadmin/Zomboid/Saves/Multiplayer/pzserver-${instanceId}`,
+                db: `/home/pzadmin/Zomboid/db/pzserver-${instanceId}.db`,
+                rconPort: Number(metadata.rconPort) || 0,
+                gamePort: Number(metadata.gamePort) || 0,
+                running: false,
+                pid: undefined,
+                broken: false,
+                installationTaskId: task.id,
+                installationStatus,
+                installationLocked: true,
+                installationProgress: task.progress || 0,
+                installationQueuePosition: queuePosition
+            };
+        })
+            .filter((taskInstance) => !instances.some((instance) => instance.id === taskInstance.id));
+        res.json({ success: true, data: [...instances, ...provisioned] });
     }
     catch (error) {
         handleError(res, error, 'Failed to get instances');
@@ -144,7 +225,7 @@ const getTaskController = (req, res) => {
     const { taskId } = req.params;
     const task = task_manager_1.taskManager.getTask(taskId);
     if (!task) {
-        res.status(404).json({ success: false, error: true, code: 'NOT_FOUND', message: 'Task not found' });
+        res.status(404).json({ success: false, error: true, code: 'NOT_FOUND', message: 'Tarea no encontrada / Task not found' });
         return;
     }
     res.json({ success: true, data: task });
@@ -159,7 +240,7 @@ const deleteInstanceController = async (req, res) => {
         const { createBackup, force } = req.body;
         const forceDelete = force || req.query.force === 'true';
         await instance_manager_1.instanceManager.deleteInstance(instanceId, !!createBackup, forceDelete);
-        res.json({ success: true, message: 'Instance deleted successfully' });
+        res.json({ success: true, message: 'Instancia eliminada correctamente / Instance deleted successfully' });
     }
     catch (error) {
         handleError(res, error, 'Failed to delete instance');
@@ -180,13 +261,23 @@ const addInstanceController = async (req, res) => {
                 res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
                 return;
             }
-            const taskId = task_manager_1.taskManager.createTask(`Create Instance '${name}'`).id;
-            // Do not await, let it run in background
-            instance_manager_1.instanceManager.createInstanceFromVersion(body.branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch), taskId)
-                .catch(err => {
-                console.error(`[instances.create] Task ${taskId} failed:`, err);
+            const { task, queueLength } = instance_install_queue_manager_1.instanceInstallQueueManager.enqueue({
+                branchId: body.branchId,
+                name,
+                gamePort: serverPort,
+                rconPort,
+                force: body.force,
+                allowUnknownBranch: Boolean(body.allowUnknownBranch)
             });
-            res.status(202).json({ success: true, taskId, message: 'Instance creation started in background.' });
+            res.status(202).json({
+                success: true,
+                taskId: task.id,
+                task,
+                queueLength,
+                message: queueLength > 1
+                    ? `Instance creation queued. ${queueLength - 1} task(s) ahead.`
+                    : 'Instance creation started.'
+            });
             return;
         }
         const path = body.path;

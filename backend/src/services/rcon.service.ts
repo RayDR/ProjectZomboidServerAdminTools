@@ -47,11 +47,9 @@ export async function sendServerMessage(instanceId: string, message: string): Pr
   // Assuming mcrcon is installed and we use it for quick broadcasts
   const cmd = `/usr/local/bin/mcrcon -H ${config.pzRconHost} -P ${instance.rconPort} -p "${password}" "servermsg \\"${escaped}\\""`;
 
-  exec(cmd, (error, stdout, stderr) => {
+  exec(cmd, (error) => {
     if (error) {
       console.error(`[RCON] ❌ Failed to send message to ${instance.name}:`, error.message);
-    } else {
-      console.log(`[RCON] ✅ Message sent to ${instance.name}:`, stdout.trim());
     }
   });
 }

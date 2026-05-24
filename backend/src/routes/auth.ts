@@ -15,6 +15,8 @@
 import { Router } from 'express';
 import { auth } from '../middleware/auth';
 import { loginUser } from '../controllers/auth.controller';
+import { changeOwnPasswordController } from '../controllers/users.controller';
+import { usersRepository } from '../repositories/users.repository';
 
 /**
  * Async handler wrapper to standardize Express async error handling.
@@ -38,8 +40,22 @@ router.get(
   '/profile',
   auth,
   asyncHandler(async (req, res) => {
-    res.json({ message: 'Authenticated', user: req.user });
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const user = await usersRepository.getUserById(userId);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    res.json({ message: 'Authenticated', user });
   })
 );
+
+router.post('/change-password', auth, asyncHandler(changeOwnPasswordController));
 
 export default router;

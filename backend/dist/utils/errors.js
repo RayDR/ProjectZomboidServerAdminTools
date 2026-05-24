@@ -38,7 +38,7 @@ class SystemCommandError extends AppError {
 exports.SystemCommandError = SystemCommandError;
 class PortConflictError extends AppError {
     constructor(conflicts) {
-        super('Port Conflict Detected', 'PORT_CONFLICT', 409);
+        super('Conflicto de puertos', 'PORT_CONFLICT', 409);
         this.conflicts = conflicts;
     }
 }

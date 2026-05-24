@@ -18,5 +18,9 @@ export interface AuthenticatedRequest extends Request {
   user?: {
     id: number | null;
     username: string;
+    email?: string | null;
+    displayName?: string | null;
+    isAdmin?: boolean;
+    mustChangePassword?: boolean;
   };
 }

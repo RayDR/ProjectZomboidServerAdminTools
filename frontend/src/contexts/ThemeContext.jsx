@@ -54,10 +54,9 @@ const normalizeTheme = (themeObj) => {
 };
 
 const themes = [
-  { id: 'zomboid-classic', name: 'Project Zomboid Classic (Retro)', ...DEFAULT_THEME },
-  { 
+  {
     id: 'modern-horror', 
-    name: 'Modern Horror Professional', 
+    name: 'Biohzard', 
     primary: '#00ff66', 
     primaryAlt: '#00cc52', 
     secondary: '#1aff75', 
@@ -89,9 +88,43 @@ const themes = [
     cardBg: '#111311', 
     shadow: '#00ff66' 
   },
-  { 
+  {
+    id: 'godzilla-lilac',
+    name: 'Godzila Attack',
+    primary: '#b04cff',
+    primaryAlt: '#9a38f0',
+    secondary: '#d48cff',
+    secondaryAlt: '#bc6df6',
+    tertiary: '#8e5bff',
+    tertiaryAlt: '#7442ea',
+    background: '#070509',
+    surface: '#120b1b',
+    surfaceAlt: '#1d1430',
+    text: '#f2e9ff',
+    muted: '#aa92d4',
+    border: '#3b2958',
+    success: '#9c7dff',
+    warning: '#ffcf5a',
+    danger: '#ff5eb6',
+    info: '#8d7dff',
+    onPrimary: '#0a0313',
+    onSecondary: '#11051d',
+    onSuccess: '#13081f',
+    onWarning: '#241600',
+    onDanger: '#2c0018',
+    onSurface: '#f2e9ff',
+    sidebarBackground: '#090611',
+    sidebarText: '#d9b8ff',
+    sidebarItem: '#130c20',
+    sidebarItemText: '#f2e9ff',
+    sidebarItemActive: '#b04cff',
+    sidebarItemActiveText: '#0a0313',
+    cardBg: '#120b1b',
+    shadow: '#b04cff'
+  },
+  {
     id: 'minimal-black', 
-    name: 'Minimal Black', 
+    name: 'Into the Dark', 
     primary: '#ffffff', 
     primaryAlt: '#cccccc', 
     secondary: '#888888', 
@@ -151,7 +184,6 @@ export const ThemeProvider = ({ children }) => {
       font: 'terminal',
       animations: true,
       customTitle: '',
-      useServerName: true,
       refreshRate: 5000,
     };
 
@@ -161,6 +193,7 @@ export const ThemeProvider = ({ children }) => {
         const parsed = JSON.parse(saved);
         if (!themes.find(t => t.id === parsed.theme)) parsed.theme = defaults.theme;
         if (!fonts[parsed.font]) parsed.font = defaults.font;
+        delete parsed.useServerName;
         return { ...defaults, ...parsed };
       } catch (e) {
         console.error('Failed to parse theme settings:', e);
@@ -186,8 +219,17 @@ export const ThemeProvider = ({ children }) => {
     const saved = sessionStorage.getItem('pzwebadmin-server-name');
     return saved || 'Project Zomboid';
   });
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('token'));
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
+    const onAuthChanged = () => {
+      setAuthToken(localStorage.getItem('token'));
+    };
+
+    window.addEventListener('pzwebadmin-auth-changed', onAuthChanged);
+    window.addEventListener('storage', onAuthChanged);
+
     const fetchServerName = async () => {
       try {
         const response = await api.get('/server/config');
@@ -200,14 +242,68 @@ export const ThemeProvider = ({ children }) => {
         console.error('Failed to fetch server name:', error);
       }
     };
-    fetchServerName();
+
+    void fetchServerName();
+    onAuthChanged();
+
+    return () => {
+      window.removeEventListener('pzwebadmin-auth-changed', onAuthChanged);
+      window.removeEventListener('storage', onAuthChanged);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!authToken) {
+      setSettingsLoaded(true);
+      return;
+    }
+
+    const fetchUserSettings = async () => {
+      try {
+        const response = await api.get('/user-settings');
+        if (response.data.success) {
+          const nextSettings = response.data.data?.settings || {};
+          const nextCustomColors = response.data.data?.customColors || {};
+          setSettings((prev) => ({
+            ...prev,
+            ...nextSettings,
+            theme: themes.find((t) => t.id === nextSettings.theme) ? nextSettings.theme : prev.theme,
+            customTitle: typeof nextSettings.customTitle === 'string' ? nextSettings.customTitle : ''
+          }));
+          setCustomColors(nextCustomColors);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user settings:', error);
+      } finally {
+        setSettingsLoaded(true);
+      }
+    };
+
+    void fetchUserSettings();
+  }, [authToken]);
 
   useEffect(() => {
     sessionStorage.setItem('pzwebadmin-theme-settings', JSON.stringify(settings));
     sessionStorage.setItem('pzwebadmin-custom-colors', JSON.stringify(customColors));
     applyTheme();
-  }, [settings, customColors]);
+
+    if (!settingsLoaded || !authToken) {
+      return;
+    }
+
+    const persist = async () => {
+      try {
+        await api.put('/user-settings', {
+          settings,
+          customColors
+        });
+      } catch (error) {
+        console.error('Failed to persist user settings:', error);
+      }
+    };
+
+    void persist();
+  }, [settings, customColors, settingsLoaded, authToken]);
 
   const applyTheme = () => {
     const font = fonts[settings.font] || fonts.terminal;
@@ -271,10 +367,7 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const getTitle = () => {
-    if (!settings.useServerName && settings.customTitle) {
-      return settings.customTitle;
-    }
-    return `${serverName} WebAdmin`;
+    return settings.customTitle?.trim() || 'Project Zomboid Server WebAdmin';
   };
 
   const value = {

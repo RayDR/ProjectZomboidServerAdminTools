@@ -80,12 +80,9 @@ async function sendServerMessage(instanceId, message) {
     const escaped = message.replace(/"/g, '\\"');
     // Assuming mcrcon is installed and we use it for quick broadcasts
     const cmd = `/usr/local/bin/mcrcon -H ${env_1.config.pzRconHost} -P ${instance.rconPort} -p "${password}" "servermsg \\"${escaped}\\""`;
-    (0, child_process_1.exec)(cmd, (error, stdout, stderr) => {
+    (0, child_process_1.exec)(cmd, (error) => {
         if (error) {
             console.error(`[RCON] ❌ Failed to send message to ${instance.name}:`, error.message);
-        }
-        else {
-            console.log(`[RCON] ✅ Message sent to ${instance.name}:`, stdout.trim());
         }
     });
 }

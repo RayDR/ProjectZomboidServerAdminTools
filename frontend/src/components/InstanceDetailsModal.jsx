@@ -1,18 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaTimes, FaServer, FaPlay, FaStop, FaRedo, FaSkull, FaSave, FaPuzzlePiece, FaUsers, FaBullhorn, FaPowerOff, FaDownload, FaTrash, FaSync, FaArrowUp, FaArrowDown, FaFilter, FaExclamationTriangle } from 'react-icons/fa';
+import { FaTimes, FaServer, FaPlay, FaStop, FaRedo, FaSkull, FaSave, FaUsers, FaBullhorn, FaPowerOff, FaDownload, FaTrash, FaSync, FaArrowUp, FaArrowDown, FaFilter, FaExclamationTriangle, FaLock, FaLockOpen } from 'react-icons/fa';
 import { Button, Card, Badge } from './ui';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { useTranslation } from '../i18n/index.jsx';
 import ModsManager from './ModsManager';
 
+const translateInstanceError = (message, t) => {
+    const text = String(message || '').trim();
+    if (!text) return t('instanceDetails.errors.unknown');
+
+    const lowered = text.toLowerCase();
+    if (lowered.includes('not found')) return t('instanceDetails.errors.notFound');
+    if (lowered.includes('accessible')) return t('instanceDetails.errors.accessible');
+    if (lowered.includes('failed to delete')) return t('instanceDetails.errors.deleteFailed');
+    if (lowered.includes('failed to rename')) return t('instanceDetails.errors.renameFailed');
+    if (lowered.includes('port conflict')) return t('instanceDetails.errors.portConflict');
+    return text;
+};
+
 const LogViewer = ({ instance, t }) => {
     const [logs, setLogs] = useState([]);
     const [linesToFetch, setLinesToFetch] = useState(500);
     const [filterErrors, setFilterErrors] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [fetchingHistory, setFetchingHistory] = useState(false); // For overlap/gap check
+    const [fetchingHistory, setFetchingHistory] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [confirmAction, setConfirmAction] = useState(null);
     const [autoScroll, setAutoScroll] = useState(true);
@@ -20,7 +33,6 @@ const LogViewer = ({ instance, t }) => {
 
     const containerRef = React.useRef(null);
     const eventSourceRef = React.useRef(null);
-    const scrollPosRef = React.useRef(0);
 
     const fetchHistory = async (lines) => {
         setLoading(true);
@@ -37,21 +49,9 @@ const LogViewer = ({ instance, t }) => {
         }
     };
 
-    // Initial Load & SSE Setup
     useEffect(() => {
-        // Initial fetch of recent history
         fetchHistory(500);
-
-        // Setup SSE for live updates
         const token = localStorage.getItem('token');
-        // Note: EventSource doesn't support headers natively easily. 
-        // We might need to pass token in query param or rely on cookie if used. 
-        // Assuming token authentication via query param for SSE or specialized polyfill.
-        // For simplicity providing token in query. Ensure backend VerifyToken checks query.
-
-        // Let's modify backend verification or use a polyfill? 
-        // If Auth middleware only checks header, this will fail.
-        // Let's assume user is authenticated via session or we pass token in URL.
         const url = `${import.meta.env.VITE_API_URL || '/api'}/logs/stream?instanceId=${instance.id}&token=${token}`;
 
         const es = new EventSource(url);
@@ -64,11 +64,7 @@ const LogViewer = ({ instance, t }) => {
             try {
                 const data = JSON.parse(event.data);
                 if (data.line) {
-                    setLogs(prev => {
-                        // Prevent duplicates if already fetched via REST? 
-                        // It's tricky. tail -f starts from NOW.
-                        return [...prev, data.line];
-                    });
+                    setLogs(prev => [...prev, data.line]);
                 }
             } catch (e) {
                 console.error("SSE Parse Error", e);
@@ -79,7 +75,6 @@ const LogViewer = ({ instance, t }) => {
             console.error("SSE Error", err);
             es.close();
             setLiveConnected(false);
-            // Retry? logic usually built-in but good to handle manually for token refresh
         };
 
         eventSourceRef.current = es;
@@ -89,7 +84,6 @@ const LogViewer = ({ instance, t }) => {
         };
     }, [instance.id]);
 
-    // Auto-scroll effect
     useEffect(() => {
         if (autoScroll && containerRef.current) {
             containerRef.current.scrollTop = containerRef.current.scrollHeight;
@@ -99,38 +93,24 @@ const LogViewer = ({ instance, t }) => {
     const handleScroll = (e) => {
         const { scrollTop, scrollHeight, clientHeight } = e.target;
 
-        // Detect if user scrolled up manually -> disable auto-scroll
         if (scrollHeight - scrollTop - clientHeight > 50) {
             setAutoScroll(false);
         } else {
             setAutoScroll(true);
         }
 
-        // Infinite Scroll Up (Load History)
         if (scrollTop === 0 && !loading && !fetchingHistory && linesToFetch < 10000) {
             setFetchingHistory(true);
             const oldHeight = scrollHeight;
             const newLimit = linesToFetch + 500;
             setLinesToFetch(newLimit);
 
-            // Fetch older logs
             api.get('/logs/server', { params: { instanceId: instance.id, lines: newLimit } })
                 .then(res => {
                     const content = res.data.data.content || '';
                     const allLines = content.split('\n');
 
-                    // We replace the current logs with the larger set
-                    // But we must preserve the "new" lines that came in via SSE if any?
-                    // This is complex. The simple "fetch N lines" usually overwrites.
-                    // For now, let's just update the list. The SSE appends to *state*. 
-                    // This might cause a jump or overwrite of live logs if not careful.
-                    // Ideally: Fetch History returns lines *before* current head.
-                    // Given our backend returns "tail N", re-fetching N+500 covers the overlap.
-
                     setLogs(allLines);
-
-                    // Restore scroll position
-                    // We need to wait for render?
                     requestAnimationFrame(() => {
                         if (containerRef.current) {
                             const newScrollHeight = containerRef.current.scrollHeight;
@@ -175,7 +155,6 @@ const LogViewer = ({ instance, t }) => {
     };
 
     const handleClearRequest = () => {
-        // If small (approx < 500 lines), just clear without nagging
         if (!logs || logs.length < 500) {
             executeClear();
         } else {
@@ -324,7 +303,7 @@ const LogViewer = ({ instance, t }) => {
 
                 {displayedLogs.length > 0 ? (
                     displayedLogs.map((line, i) => (
-                        <div key={i} className="log-line whitespace-pre-wrap hover:bg-white/5 border-l-2 border-transparent hover:border-gray-700 pl-1">
+                        <div key={i} className="log-line whitespace-pre-wrap hover:bg-white/5 border-l-2 border-transparent pl-1">
                             {line}
                         </div>
                     ))
@@ -340,6 +319,9 @@ const LogViewer = ({ instance, t }) => {
 
 const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
     const { t } = useTranslation();
+    const ui = React.useMemo(() => new Proxy({}, {
+        get: (_, key) => t(`instanceDetails.${String(key)}`)
+    }), [t]);
     const [activeTab, setActiveTab] = useState('controls');
     const [iniContent, setIniContent] = useState('');
     const [iniPath, setIniPath] = useState('');
@@ -350,16 +332,47 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [createBackup, setCreateBackup] = useState(true);
     const [deleting, setDeleting] = useState(false);
+    const [pendingDelete, setPendingDelete] = useState(null);
+    const [quickMotd, setQuickMotd] = useState('');
+    const [quickPort, setQuickPort] = useState('');
+    const [quickIniLoading, setQuickIniLoading] = useState(false);
+    const [quickIniSaving, setQuickIniSaving] = useState(false);
+    const [backupLoading, setBackupLoading] = useState(false);
     const configSearchRef = React.useRef(null);
     const textareaRef = React.useRef(null);
+    const deleteTimerRef = React.useRef(null);
+
+    const formatBytes = (bytes) => {
+        if (!Number.isFinite(bytes) || bytes <= 0) return '-';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let value = bytes;
+        let unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.length - 1) {
+            value /= 1024;
+            unitIndex += 1;
+        }
+        return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+    };
+
+    const readIniValue = (content, key) => {
+        const regex = new RegExp(`^\\s*${key}\\s*=\\s*(.*)$`, 'im');
+        const match = String(content || '').match(regex);
+        return match ? match[1].trim() : '';
+    };
+
+    const upsertIniValue = (content, key, value) => {
+        const regex = new RegExp(`^(\\s*${key}\\s*=\\s*)(.*)$`, 'im');
+        if (regex.test(content)) {
+            return content.replace(regex, `$1${value}`);
+        }
+        const suffix = content.endsWith('\n') ? '' : '\n';
+        return `${content}${suffix}${key}=${value}\n`;
+    };
 
     useEffect(() => {
         if (isOpen && activeTab === 'config') fetchConfig();
-        // Reset config type on open?
-        // if (isOpen) setConfigType('ini'); 
     }, [isOpen, activeTab, instance.id, configType]);
 
-    // Ctrl+F Handler
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (activeTab === 'config' && (e.ctrlKey || e.metaKey) && e.key === 'f') {
@@ -390,6 +403,54 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
         }
     };
 
+    const loadQuickIni = async () => {
+        if (!isOpen || activeTab !== 'controls') return;
+        setQuickIniLoading(true);
+        try {
+            const res = await api.get('/config/ini', { params: { instanceId: instance.id, type: 'ini' } });
+            const content = res.data?.data?.content || '';
+            setQuickMotd(readIniValue(content, 'PublicDescription'));
+            setQuickPort(readIniValue(content, 'DefaultPort') || String(localInstance.gamePort || ''));
+        } catch (err) {
+            toast.error(ui.iniQuickLoadFailed);
+        } finally {
+            setQuickIniLoading(false);
+        }
+    };
+
+    const applyQuickIni = async () => {
+        setQuickIniSaving(true);
+        try {
+            const res = await api.get('/config/ini', { params: { instanceId: instance.id, type: 'ini' } });
+            let content = res.data?.data?.content || '';
+
+            content = upsertIniValue(content, 'PublicDescription', quickMotd || '');
+            if (quickPort) {
+                content = upsertIniValue(content, 'DefaultPort', quickPort);
+            }
+
+            await api.put('/config/ini', { instanceId: instance.id, type: 'ini', content });
+            setLocalInstance((prev) => ({ ...prev, gamePort: Number(quickPort) || prev.gamePort }));
+            toast.success(ui.iniQuickSaved);
+        } catch (err) {
+            toast.error(t('error') + ': ' + (err.response?.data?.message || err.message));
+        } finally {
+            setQuickIniSaving(false);
+        }
+    };
+
+    const handleCreateBackup = async () => {
+        setBackupLoading(true);
+        try {
+            await api.post('/commands', { action: 'backup' });
+            toast.success(ui.backupStarted);
+        } catch (err) {
+            toast.error(err.response?.data?.message || ui.backupFailed);
+        } finally {
+            setBackupLoading(false);
+        }
+    };
+
     const handleRconSubmit = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
         if (!rconCommand) return;
@@ -408,61 +469,95 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
         }
     };
 
-    // ... (rest of RCON and Render logic)
-
-    // Auto-refresh stats/status when open
-    useEffect(() => {
-        let interval;
-        if (isOpen && activeTab === 'controls') {
-            interval = setInterval(async () => {
-                try {
-                    const res = await api.get('/instances');
-                    const instances = res.data.data;
-                    const current = instances.find(i => i.id === instance.id);
-                    if (current && onAction) {
-                        // We can't easily mutate "instance" prop as it comes from parent.
-                        // But we can trigger a parent refresh or use local state if we want to show updated status immediately.
-                        // Ideally, the parent "Dashboard" is the one fetching instances.
-                        // If Dashboard isn't polling, we won't see updates.
-                        // The user asked to update "status".
-                        // We can abuse onAction to tell parent to "refresh"? Or just rely on parent polling?
-                        // If parent doesn't poll, we can't update the prop "instance" from here.
-                        // Wait, onAction is usually for control. 
-
-                        // Hack: Create local state for display, initialize with prop, update with poll.
-                    }
-                } catch (e) { /* ignore */ }
-            }, 2000);
-        }
-        return () => clearInterval(interval);
-    }, [isOpen, activeTab, instance.id]);
-
-    // Better approach:
-    // Create local state merged with prop
     const [localInstance, setLocalInstance] = useState(instance);
     const [forceDeletePrompt, setForceDeletePrompt] = useState(false);
 
-    const handleDeleteInstance = async (force = false) => {
+    const handleToggleLock = async () => {
+        try {
+            const nextLocked = !Boolean(localInstance.isLocked);
+            await api.patch(`/instances/${localInstance.id}`, { isLocked: nextLocked });
+            setLocalInstance(prev => ({ ...prev, isLocked: nextLocked }));
+            toast.success(ui.lockUpdated);
+        } catch (err) {
+            toast.error(ui.lockUpdateFailed);
+        }
+    };
+
+    const executeDeleteInstance = async (force = false) => {
         setDeleting(true);
         try {
             const res = await api.delete(`/instances/${localInstance.id}`, { data: { createBackup, force } });
             if (res.data.success) {
-                toast.success('Instance deleted successfully');
+                toast.success(ui.deleteSuccess);
                 setShowDeleteConfirm(false);
                 setForceDeletePrompt(false);
                 onClose();
                 if (onAction) onAction({ stopPropagation: () => {} }, localInstance.id, 'refresh');
             }
         } catch (err) {
-            const errorMsg = err.response?.data?.message || err.message || 'Failed to delete instance';
+            const errorMsg = translateInstanceError(err.response?.data?.message || err.message || 'Failed to delete instance', t);
             toast.error(errorMsg);
             if (errorMsg.toLowerCase().includes('not found') || errorMsg.toLowerCase().includes('accessible')) {
                 setForceDeletePrompt(true);
             }
         } finally {
             setDeleting(false);
+            setPendingDelete(null);
         }
     };
+
+    const scheduleDeleteInstance = (force = false) => {
+        if (localInstance.isLocked) {
+            toast.error(ui.lockDeleteHint);
+            return;
+        }
+
+        if (deleteTimerRef.current) {
+            clearTimeout(deleteTimerRef.current);
+            deleteTimerRef.current = null;
+        }
+
+        setPendingDelete({ force });
+        setShowDeleteConfirm(false);
+        setForceDeletePrompt(false);
+
+        const toastId = `delete-undo-${localInstance.id}`;
+        toast((toastObj) => (
+            <div className="flex items-center gap-3">
+                <span className="text-sm">{ui.deleteInFiveSeconds}</span>
+                <button
+                    type="button"
+                    className="px-2 py-1 rounded border border-border bg-background text-xs hover:border-primary"
+                    onClick={() => {
+                        if (deleteTimerRef.current) {
+                            clearTimeout(deleteTimerRef.current);
+                            deleteTimerRef.current = null;
+                        }
+                        setPendingDelete(null);
+                        toast.dismiss(toastObj.id);
+                        toast.success(ui.deleteCanceled);
+                    }}
+                >
+                    {ui.undo}
+                </button>
+            </div>
+        ), { id: toastId, duration: 5000 });
+
+        deleteTimerRef.current = setTimeout(() => {
+            deleteTimerRef.current = null;
+            void executeDeleteInstance(force);
+            toast.dismiss(toastId);
+        }, 5000);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (deleteTimerRef.current) {
+                clearTimeout(deleteTimerRef.current);
+                deleteTimerRef.current = null;
+            }
+        };
+    }, []);
 
     useEffect(() => {
         setLocalInstance(instance);
@@ -476,8 +571,8 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                     const res = await api.get('/instances');
                     const found = res.data.data.find(i => i.id === instance.id);
                     if (found) setLocalInstance(found);
-                } catch (e) {
-                    // ignore
+                } catch (_e) {
+                    return;
                 }
             };
             fetchStatus();
@@ -486,20 +581,20 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
         return () => clearInterval(interval);
     }, [isOpen, activeTab, instance.id]);
 
-    // Replaced all usages of `instance.` with `localInstance.` in the Render where status matters (Controls Tab)
-    // Actually, let's just use localInstance everywhere inside the modal for consistency.
+    useEffect(() => {
+        void loadQuickIni();
+    }, [isOpen, activeTab, instance.id]);
 
     const renderConfigTab = () => (
         <div className="h-full flex flex-col">
             <div className="flex justify-between items-center mb-2 gap-4">
                 <div className="flex flex-col flex-1 overflow-hidden">
                     <span className="text-xs text-muted font-mono truncate">
-                        {iniPath ? iniPath.replace('/home/sysops', '~').replace('/home/pzadmin', '~') : 'Config Path Unknown'}
+                        {iniPath ? iniPath.replace('/home/sysops', '~').replace('/home/pzadmin', '~') : ui.configPathUnknown}
                     </span>
                 </div>
 
                 <div className="flex gap-2 items-center">
-                    {/* File Type Selector */}
                     <select
                         className="bg-background border border-border rounded px-2 py-1 text-sm text-text focus:border-primary outline-none"
                         value={configType}
@@ -515,20 +610,17 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                         ref={configSearchRef}
                         id="config-search"
                         className="bg-background border border-border rounded px-3 py-1 text-sm text-text focus:border-primary outline-none w-48"
-                        placeholder="Find (Ctrl+F)..."
+                        placeholder={ui.findPlaceholder}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                                e.preventDefault(); // Prevent accidental form submit or newline
+                                e.preventDefault();
                                 const term = e.target.value.toLowerCase();
                                 const textarea = textareaRef.current;
                                 if (!textarea || !term) return;
 
                                 const content = textarea.value.toLowerCase();
-                                // Find next occurrence from current position
                                 let startPos = textarea.selectionEnd;
                                 let index = content.indexOf(term, startPos);
-
-                                // Wrap around
                                 if (index === -1) {
                                     index = content.indexOf(term, 0);
                                 }
@@ -536,15 +628,13 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                                 if (index !== -1) {
                                     textarea.focus();
                                     textarea.setSelectionRange(index, index + term.length);
-                                    // Scroll to view logic
-                                    // Calculate lines before index
                                     const textBefore = content.substring(0, index);
                                     const linesBefore = textBefore.split('\n').length;
                                     const lineHeight = 20;
                                     const scrollPos = linesBefore * lineHeight - (textarea.clientHeight / 2);
                                     textarea.scrollTop = scrollPos;
                                 } else {
-                                    toast.error('Not found');
+                                    toast.error(ui.notFound);
                                 }
                             }
                         }}
@@ -553,7 +643,6 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                 </div>
             </div>
             <div className="flex-1 flex overflow-hidden border border-border rounded bg-background">
-                {/* Line Numbers */}
                 <div className="bg-surfaceAlt text-muted p-4 text-right font-mono text-sm select-none border-r border-border overflow-hidden w-12 pt-4">
                     {iniContent.split('\n').map((_, i) => (
                         <div key={i} className="h-[20px] leading-[20px]">{i + 1}</div>
@@ -567,7 +656,6 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                     onChange={(e) => setIniContent(e.target.value)}
                     spellCheck={false}
                     onScroll={(e) => {
-                        // Sync line numbers scroll
                         e.target.previousSibling.scrollTop = e.target.scrollTop;
                     }}
                 />
@@ -586,31 +674,73 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                 {/* Header */}
                 <div className="flex justify-between items-center p-5 border-b border-border bg-surfaceAlt">
                     <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-background rounded-lg border border-border">
-                            <FaServer className="text-primary text-2xl" />
-                        </div>
-                        <div className="group/edit">
-                            <input
-                                className="text-xl font-bold text-text bg-transparent border-b border-transparent hover:border-muted focus:border-primary outline-none w-full"
-                                defaultValue={localInstance.name}
-                                onBlur={async (e) => {
-                                    if (e.target.value !== localInstance.name) {
-                                        try {
-                                            await api.patch(`/instances/${localInstance.id}`, { name: e.target.value });
-                                            toast.success('Instance renamed');
-                                        } catch (err) {
-                                            toast.error('Failed to rename');
+                        <div className="group/edit min-w-0">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleToggleLock}
+                                    title={localInstance.isLocked ? ui.lockDisable : ui.lockEnable}
+                                    className={`p-2 rounded border transition-colors ${localInstance.isLocked ? 'bg-warning text-onWarning border-warning' : 'bg-surfaceAlt text-muted border-border hover:text-text'}`}
+                                >
+                                    {localInstance.isLocked ? <FaLock /> : <FaLockOpen />}
+                                </button>
+                                <input
+                                    className="text-xl font-bold text-text bg-transparent border-b border-transparent hover:border-muted focus:border-primary outline-none w-full"
+                                    defaultValue={localInstance.name}
+                                    onBlur={async (e) => {
+                                        if (e.target.value !== localInstance.name) {
+                                            try {
+                                                await api.patch(`/instances/${localInstance.id}`, { name: e.target.value });
+                                                toast.success(ui.renameSuccess);
+                                            } catch (err) {
+                                                toast.error(translateInstanceError('Failed to rename', t));
+                                            }
                                         }
-                                    }
-                                }}
-                            />
-                            <p className="text-xs text-muted font-mono">{localInstance.id} | {localInstance.gamePort}</p>
+                                    }}
+                                />
+                                
+                                {localInstance.running ? ( <Badge variant="success">{ui.running}</Badge> ) : ( <Badge variant="warning">{ui.stopped}</Badge> )}
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-mono">
+                                <span className="instance-meta-chip">PID: {localInstance.pid || '-'}</span>
+                                <span className="instance-meta-chip">{ui.udpLabel}: {localInstance.gamePort || '-'}</span>
+                                <span className="instance-meta-chip">{ui.rconLabel}: {localInstance.rconPort || '-'}</span>
+                                <span className="instance-meta-chip">{ui.branchLabel}: {localInstance.version || '-'}</span>
+                            </div>
                         </div>
                     </div>
                     <div className="flex items-center space-x-4">
-                        <Button variant="danger" size="sm" onClick={() => setShowDeleteConfirm(true)}>
-                            <FaTrash className="mr-1" /> Eliminar
-                        </Button>
+                        {localInstance.running ? (
+                            <Button
+                                variant="warning"
+                                size="sm"
+                                onClick={(e) => onAction(e, localInstance.id, 'stop')}
+                                title={ui.quickStop}
+                                className="px-3"
+                            >
+                                <FaStop />
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={(e) => onAction(e, localInstance.id, 'start')}
+                                title={ui.quickStart}
+                                className="px-3"
+                            >
+                                <FaPlay />
+                            </Button>
+                        )}
+                        <div title={localInstance.isLocked ? ui.lockDeleteHint : ''}>
+                            <Button
+                                variant="danger"
+                                size="sm"
+                                disabled={Boolean(localInstance.isLocked)}
+                                onClick={() => setShowDeleteConfirm(true)}
+                            >
+                                <FaTrash className="mr-1" /> {ui.deleteLabel}
+                            </Button>
+                        </div>
                         <button onClick={onClose} className="text-muted hover:text-text transition-colors">
                             <FaTimes className="text-2xl" />
                         </button>
@@ -642,18 +772,30 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                                 <div className="space-y-5">
                                     <div className="flex justify-between items-center bg-background p-3 rounded-lg border border-border">
                                         <span className="text-muted font-medium">{t('instances.state')}</span>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${localInstance.running ? 'bg-success bg-opacity-20 text-success border border-success' : 'bg-surfaceAlt text-muted border border-border'}`}>
-                                            {localInstance.running ? 'RUNNING' : 'STOPPED'}
-                                        </span>
+                                        {localInstance.running ? (
+                                            <Badge variant="success">{ui.running}</Badge>
+                                        ) : (
+                                            <Badge variant="warning">{ui.stopped}</Badge>
+                                        )}
                                     </div>
                                     <div className="flex justify-between items-center bg-background p-3 rounded-lg border border-border">
                                         <span className="text-muted">{t('instances.pid')}:</span>
                                         <span className="font-mono text-text">{localInstance.pid || '-'}</span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted">{t('instances.lastStop')}:</span>
-                                        <span className="text-danger">{localInstance.shutdownReason || '-'}</span>
-                                    </div>
+                                    {!localInstance.running && (
+                                        <div className="flex justify-between">
+                                            <span className="text-muted">{t('instances.lastStop')}:</span>
+                                            <span className="text-danger">{localInstance.shutdownReason || '-'}</span>
+                                        </div>
+                                    )}
+                                    {localInstance.running && (
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-muted">{ui.processUsageLabel}:</span>
+                                            <span className="font-mono text-text">
+                                                {ui.cpuLabel} {Number.isFinite(localInstance.processCpuPercent) ? `${localInstance.processCpuPercent.toFixed(1)}%` : '-'} | {ui.memoryLabel} {formatBytes(localInstance.processMemoryBytes)}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </Card>
                             <Card>
@@ -691,6 +833,74 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                                     >
                                         <FaSkull className="mr-2" /> {t('instances.kill')}
                                     </Button>
+                                    {!localInstance.running && (localInstance.broken || localInstance.installationStatus === 'failed' || localInstance.shutdownReason === 'installation_failed') && (
+                                        <Button
+                                            variant="warning"
+                                            onClick={(e) => onAction(e, localInstance.id, 'retry-install')}
+                                            className="col-span-2 flex items-center justify-center py-4"
+                                        >
+                                            <FaRedo className="mr-2" /> {ui.retryInstall}
+                                        </Button>
+                                    )}
+                                </div>
+                                {pendingDelete && (
+                                    <p className="mt-3 text-xs text-warning">
+                                        {ui.deleteScheduled}
+                                    </p>
+                                )}
+                            </Card>
+                            <Card>
+                                <h3 className="text-lg font-bold text-text mb-4">{ui.quickToolsTitle}</h3>
+                                <div className="mb-4 flex items-center justify-between rounded border border-border bg-surfaceAlt p-3">
+                                    <span className="text-sm text-muted">{ui.lockLabel}</span>
+                                    <button
+                                        type="button"
+                                        onClick={handleToggleLock}
+                                        title={localInstance.isLocked ? ui.lockDisable : ui.lockEnable}
+                                        className={`setting-switch ${localInstance.isLocked ? 'setting-switch-on' : ''}`}
+                                    >
+                                        <span className="setting-switch-thumb" />
+                                    </button>
+                                </div>
+                                <div className="space-y-3">
+                                    <Button
+                                        variant="secondary"
+                                        onClick={handleCreateBackup}
+                                        disabled={backupLoading}
+                                        className="w-full flex items-center justify-center"
+                                    >
+                                        <FaSave className="mr-2" /> {backupLoading ? t('loading') : ui.backupNow}
+                                    </Button>
+                                </div>
+                            </Card>
+                            <Card>
+                                <h3 className="text-lg font-bold text-text mb-4">{ui.iniQuickTitle}</h3>
+                                <div className="rounded border border-border bg-surfaceAlt p-3">
+                                    <div className="grid grid-cols-1 gap-2">
+                                        <input
+                                            className="bg-background border border-border rounded px-3 py-2 text-sm text-text focus:border-primary outline-none"
+                                            placeholder={ui.motdLabel}
+                                            value={quickMotd}
+                                            onChange={(e) => setQuickMotd(e.target.value)}
+                                            disabled={quickIniLoading || quickIniSaving}
+                                        />
+                                        <input
+                                            type="number"
+                                            className="bg-background border border-border rounded px-3 py-2 text-sm text-text focus:border-primary outline-none"
+                                            placeholder={ui.serverPortLabel}
+                                            value={quickPort}
+                                            onChange={(e) => setQuickPort(e.target.value)}
+                                            disabled={quickIniLoading || quickIniSaving}
+                                        />
+                                        <Button
+                                            variant="primary"
+                                            onClick={applyQuickIni}
+                                            disabled={quickIniLoading || quickIniSaving}
+                                            className="w-full"
+                                        >
+                                            {quickIniSaving ? t('loading') : ui.applyIniQuick}
+                                        </Button>
+                                    </div>
                                 </div>
                             </Card>
                         </div>
@@ -709,27 +919,27 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                                         {line.text}
                                     </div>
                                 ))}
-                                {rconOutput.length === 0 && <span className="text-muted opacity-50">RCON Console Ready.</span>}
+                                {rconOutput.length === 0 && <span className="text-muted opacity-50">{ui.rconReady}</span>}
                             </div>
                             <div className="flex gap-2 mb-2">
                                 <Button size="sm" variant="secondary" onClick={() => { setRconCommand('save'); handleRconSubmit({ preventDefault: () => { } }); }}>
-                                    <FaSave className="mr-1" /> Save
+                                    <FaSave className="mr-1" /> {ui.saveQuick}
                                 </Button>
                                 <Button size="sm" variant="secondary" onClick={() => { setRconCommand('players'); handleRconSubmit({ preventDefault: () => { } }); }}>
-                                    <FaUsers className="mr-1" /> Players
+                                    <FaUsers className="mr-1" /> {ui.playersQuick}
                                 </Button>
                                 <Button size="sm" variant="secondary" onClick={() => {
-                                    const msg = prompt('Enter message to broadcast:');
+                                    const msg = prompt(ui.broadcastPrompt);
                                     if (msg) { setRconCommand(`servermsg "${msg}"`); handleRconSubmit({ preventDefault: () => { } }); }
                                 }}>
-                                    <FaBullhorn className="mr-1" /> Broadcast
+                                    <FaBullhorn className="mr-1" /> {ui.broadcastQuick}
                                 </Button>
                                 <Button size="sm" variant="danger" onClick={() => {
-                                    if (confirm('Are you sure you want to stop the server via RCON?')) {
+                                    if (confirm(ui.quitConfirm)) {
                                         setRconCommand('quit'); handleRconSubmit({ preventDefault: () => { } });
                                     }
                                 }}>
-                                    <FaPowerOff className="mr-1" /> Quit
+                                    <FaPowerOff className="mr-1" /> {ui.quitQuick}
                                 </Button>
                             </div>
                             <form onSubmit={handleRconSubmit} className="flex gap-2">
@@ -766,14 +976,14 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                         >
                             <h3 className="text-xl font-bold text-danger mb-4 flex items-center">
                                 <FaExclamationTriangle className="mr-2" />
-                                Eliminar Instancia
+                                {ui.deleteTitle}
                             </h3>
                             <div className="text-text space-y-4 mb-6">
                                 <p>
-                                    ¿Estás seguro de que deseas eliminar la instancia <strong>{localInstance.name}</strong>?
+                                    {ui.deleteQuestion} <strong>{localInstance.name}</strong>?
                                 </p>
                                 <p className="text-sm text-muted">
-                                    Esta acción detendrá el servidor si está corriendo y eliminará sus archivos.
+                                    {ui.deleteImpact}
                                 </p>
                                 <div className="bg-background p-4 rounded border border-border flex items-center cursor-pointer" onClick={() => setCreateBackup(!createBackup)}>
                                     <input 
@@ -784,13 +994,19 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                                     />
                                     <div>
                                         <span className="font-bold text-text block">{t('instances.backupBeforeDelete')}</span>
-                                        <span className="text-xs text-muted">Respalda archivos .ini, .db y saves de los mundos.</span>
+                                        <span className="text-xs text-muted">{ui.backupHint}</span>
                                     </div>
                                 </div>
                                 {forceDeletePrompt && (
                                     <div className="bg-danger bg-opacity-10 border border-danger p-3 rounded text-danger text-sm">
-                                        <p className="font-bold">Advertencia: Falló la eliminación estándar.</p>
-                                        <p>La instancia parece estar corrupta o no existe en el sistema. ¿Deseas forzar la eliminación para removerla de la lista del panel?</p>
+                                        <p className="font-bold">{ui.forceDeleteWarning}</p>
+                                        <p>{ui.forceDeleteExplain}</p>
+                                    </div>
+                                )}
+                                {localInstance.isLocked && (
+                                    <div className="bg-warning bg-opacity-10 border border-warning p-3 rounded text-warning text-sm">
+                                        <p className="font-bold">{ui.lockLabel}</p>
+                                        <p>{ui.lockDeleteHint}</p>
                                     </div>
                                 )}
                             </div>
@@ -799,15 +1015,15 @@ const InstanceDetailsModal = ({ isOpen, onClose, instance, onAction }) => {
                                     setShowDeleteConfirm(false);
                                     setForceDeletePrompt(false);
                                 }} disabled={deleting}>
-                                    Cancelar
+                                    {t('cancel')}
                                 </Button>
                                 {forceDeletePrompt ? (
-                                    <Button variant="danger" onClick={() => handleDeleteInstance(true)} disabled={deleting}>
-                                        {deleting ? 'Eliminando...' : 'Forzar Eliminación'}
+                                    <Button variant="danger" onClick={() => scheduleDeleteInstance(true)} disabled={deleting || Boolean(localInstance.isLocked)}>
+                                        {deleting ? ui.deleting : ui.forceDelete}
                                     </Button>
                                 ) : (
-                                    <Button variant="danger" onClick={() => handleDeleteInstance(false)} disabled={deleting}>
-                                        {deleting ? 'Eliminando...' : 'Sí, Eliminar Instancia'}
+                                    <Button variant="danger" onClick={() => scheduleDeleteInstance(false)} disabled={deleting || Boolean(localInstance.isLocked)}>
+                                        {deleting ? ui.deleting : ui.confirmDelete}
                                     </Button>
                                 )}
                             </div>

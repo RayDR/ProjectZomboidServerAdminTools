@@ -36,7 +36,7 @@ export default function LogViewer({ token }) {
           className="input w-24 ml-4"
         />
       </div>
-      <pre className="terminal-screen max-h-[300px] overflow-auto whitespace-pre-wrap">
+      <pre className="console-shell max-h-[300px] overflow-auto whitespace-pre-wrap">
         {logs[logTab]}
       </pre>
     </div>

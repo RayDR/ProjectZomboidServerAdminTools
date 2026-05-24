@@ -445,7 +445,7 @@ const Logs = () => {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-terminal-text text-shadow-terminal font-zombie mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-text text-shadow-terminal font-title mb-2">
             <GlitchText>{t('logs.title')}</GlitchText>
           </h1>
           <p className="text-zombie-green text-sm sm:text-base">
@@ -513,7 +513,7 @@ const Logs = () => {
           onClick={() => setFilterType('all')}
         >
           <div className="text-center">
-            <div className="text-2xl font-bold text-terminal-text">{filteredLogs.length}</div>
+            <div className="text-2xl font-bold text-text">{filteredLogs.length}</div>
             <div className="text-xs text-gray-400 uppercase tracking-wide mt-1">
               {filterType === 'all' ? '✓ ' : ''}{t('logs.showing')}
             </div>
@@ -576,7 +576,7 @@ const Logs = () => {
       {/* Logs Display */}
       <Card className="bg-black bg-opacity-80 relative">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-terminal-text flex items-center font-mono">
+          <h2 className="text-xl font-bold text-text flex items-center font-mono">
             <FaScroll className="mr-2" /> 
             {activeTab === 'server' ? t('logs.serverLog') : t('logs.maintenanceLog')}
           </h2>

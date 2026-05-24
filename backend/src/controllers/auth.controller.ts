@@ -13,16 +13,41 @@
  */
 
 import { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
+import crypto from 'crypto';
+import { usersRepository } from '../repositories/users.repository';
 
 /**
- * Login controller: validates password and returns a static token.
+ * Login controller: validates the admin password against the users table and creates a session token.
  */
 export const loginUser = async (req: Request, res: Response) => {
-  const { password } = req.body;
-
-  if (password === 'admin123') {
-    return res.json({ token: 'secret123' });
+  const { username = 'admin', password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: 'Password required' });
   }
 
-  return res.status(401).json({ error: 'Unauthorized' });
+  const user = await usersRepository.getAuthUserByUsername(String(username || 'admin').trim() || 'admin');
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const ok = await bcrypt.compare(String(password), user.password_hash);
+  if (!ok) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const token = crypto.randomUUID();
+  await usersRepository.createSession(user.id, token);
+
+  return res.json({
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      displayName: user.display_name,
+      isAdmin: Boolean(user.is_admin),
+      mustChangePassword: Boolean(user.must_change_password)
+    }
+  });
 };

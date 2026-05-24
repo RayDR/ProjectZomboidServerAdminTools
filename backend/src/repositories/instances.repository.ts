@@ -20,7 +20,11 @@ export interface ServerInstance {
   rconPort: number;
   gamePort: number;
   isActive?: boolean;
+  isLocked?: boolean;
   shutdownReason?: string;
+  installationTaskId?: string;
+  installationStatus?: 'pending' | 'running' | 'success' | 'failed';
+  installationLastError?: string;
 }
 
 export interface InstancesConfig {
@@ -86,18 +90,13 @@ export class InstancesRepository {
   private preventDuplicates(instances: ServerInstance[]): void {
     const names = new Set<string>();
     const serviceNames = new Set<string>();
-    const ports = new Set<number>();
 
     for (const instance of instances) {
       if (names.has(instance.id)) throw new ValidationError(`Duplicate instance ID found: ${instance.id}`);
       if (serviceNames.has(instance.serviceName)) throw new ValidationError(`Duplicate serviceName found: ${instance.serviceName}`);
-      if (ports.has(instance.gamePort)) throw new ValidationError(`Duplicate gamePort found: ${instance.gamePort}`);
-      if (ports.has(instance.rconPort)) throw new ValidationError(`Duplicate rconPort found: ${instance.rconPort}`);
 
       names.add(instance.id);
       serviceNames.add(instance.serviceName);
-      ports.add(instance.gamePort);
-      ports.add(instance.rconPort);
     }
   }
 }

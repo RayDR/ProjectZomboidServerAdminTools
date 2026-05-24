@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaHome, FaCog, FaSignOutAlt, FaBars, FaTimes, FaSkull, FaPalette } from 'react-icons/fa';
+import { FaHome, FaCog, FaSignOutAlt, FaBars, FaTimes, FaSkull, FaPalette, FaUsers } from 'react-icons/fa';
 import { FloatingParticles, StatusIndicator } from './effects/ZombieEffects';
 import { useTranslation } from '../i18n/index.jsx';
 import { useTheme } from '../contexts/ThemeContext';
@@ -17,12 +17,16 @@ const Layout = () => {
 
   const menuItems = [
     { path: '/', icon: FaHome, label: t('nav.dashboard') },
+    { path: '/users', icon: FaUsers, label: t('nav.users') },
     // Only essential items since most are in the modal now
     { path: '/settings', icon: FaCog, label: t('nav.settings') },
   ];
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('mustChangePassword');
+    window.dispatchEvent(new Event('pzwebadmin-auth-changed'));
     window.location.href = '/login';
   };
 

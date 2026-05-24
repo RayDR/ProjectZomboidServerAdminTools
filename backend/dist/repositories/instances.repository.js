@@ -92,20 +92,13 @@ class InstancesRepository {
     preventDuplicates(instances) {
         const names = new Set();
         const serviceNames = new Set();
-        const ports = new Set();
         for (const instance of instances) {
             if (names.has(instance.id))
                 throw new errors_1.ValidationError(`Duplicate instance ID found: ${instance.id}`);
             if (serviceNames.has(instance.serviceName))
                 throw new errors_1.ValidationError(`Duplicate serviceName found: ${instance.serviceName}`);
-            if (ports.has(instance.gamePort))
-                throw new errors_1.ValidationError(`Duplicate gamePort found: ${instance.gamePort}`);
-            if (ports.has(instance.rconPort))
-                throw new errors_1.ValidationError(`Duplicate rconPort found: ${instance.rconPort}`);
             names.add(instance.id);
             serviceNames.add(instance.serviceName);
-            ports.add(instance.gamePort);
-            ports.add(instance.rconPort);
         }
     }
 }

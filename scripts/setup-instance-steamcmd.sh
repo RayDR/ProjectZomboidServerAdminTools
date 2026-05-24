@@ -69,15 +69,10 @@ if [ -z "$BRANCH_ID" ] || [ -z "$NAME" ] || [ -z "$GAME_PORT" ] || [ -z "$RCON_P
     exit 1
 fi
 
-if [[ ! "$NAME" =~ ^[a-zA-Z0-9_-]{1,48}$ ]]; then
-    echo "Error: NAME is invalid. Only letters, numbers, dash and underscore are allowed."
-    exit 1
-fi
-
 ID=$(echo "$NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')
 INSTALL_DIR="/opt/pzserver-$ID"
 SERVICE_NAME="pzomboid-$ID"
-SERVER_NAME="pz$ID"
+SERVER_NAME="pzserver-$ID"
 ADMIN_USER="pzadmin"
 ADMIN_PASSWORD="${PZ_ADMIN_PASSWORD:-pzadmin}"
 

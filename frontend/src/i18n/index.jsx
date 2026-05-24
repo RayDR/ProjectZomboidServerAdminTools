@@ -5,7 +5,11 @@ const I18nContext = createContext();
 
 export const I18nProvider = ({ children }) => {
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('language') || navigator.language.startsWith('es') ? 'es' : 'en';
+    const savedLanguage = localStorage.getItem('language');
+    if (savedLanguage === 'es' || savedLanguage === 'en') {
+      return savedLanguage;
+    }
+    return navigator.language.startsWith('es') ? 'es' : 'en';
   });
 
   useEffect(() => {

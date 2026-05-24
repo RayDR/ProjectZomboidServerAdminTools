@@ -12,41 +12,55 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
  */
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.auth = auth;
-const sqlite3_1 = __importDefault(require("sqlite3"));
-const db = new sqlite3_1.default.Database('./db/pzadmin.db');
-function auth(req, res, next) {
+const users_repository_1 = require("../repositories/users.repository");
+async function auth(req, res, next) {
     // Try to get token from Authorization header first
     let token = (req.headers['authorization'] || '').replace('Bearer ', '').trim();
     // If not in header, try query parameter (for EventSource/SSE)
     if (!token && req.query.token) {
         token = req.query.token;
     }
-    console.log(`🔐 Auth middleware - Path: ${req.path}, Token: ${token ? token.substring(0, 10) + '...' : 'none'}`);
-    if (token === 'secret123') {
-        req.user = { username: 'token_user', id: null };
-        console.log(`✅ Auth passed for ${req.path}`);
-        next();
-        return;
-    }
-    if (!token) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-    }
-    db.get(`SELECT u.id, u.username FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`, [token], (err, row) => {
-        if (err) {
-            res.status(500).json({ error: 'DB error' });
+    try {
+        if (token === 'secret123') {
+            const adminUser = await users_repository_1.usersRepository.getAuthUserByUsername('admin');
+            if (!adminUser) {
+                res.status(401).json({ error: 'Unauthorized' });
+                return;
+            }
+            req.user = {
+                id: adminUser.id,
+                username: adminUser.username,
+                email: adminUser.email,
+                displayName: adminUser.display_name,
+                isAdmin: Boolean(adminUser.is_admin),
+                mustChangePassword: Boolean(adminUser.must_change_password)
+            };
+            next();
             return;
         }
-        if (!row) {
+        if (!token) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
         }
-        req.user = { id: row.id, username: row.username };
+        const user = await users_repository_1.usersRepository.getUserBySessionToken(token);
+        if (!user) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+        req.user = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            isAdmin: user.isAdmin,
+            mustChangePassword: user.mustChangePassword
+        };
         next();
-    });
+    }
+    catch (error) {
+        console.error('Auth middleware error:', error);
+        res.status(500).json({ error: 'DB error' });
+    }
 }

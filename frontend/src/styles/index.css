@@ -8,34 +8,40 @@
   :root {
     /* 
       Theme Templates 
-      By default, we use 'zomboid-classic' colors if no theme is set.
+      By default, we use 'modern-horror' colors if no theme is set.
     */
     --font-family: "Courier New", Courier, monospace;
-    
-    /* Project Zomboid Classic */
-    --color-primary: #00ff41;
-    --color-primary-alt: #00cc33;
-    --color-secondary: #39ff14;
-    --color-secondary-alt: #2ecc11;
-    --color-tertiary: #7fff00;
-    --color-tertiary-alt: #66cc00;
-    --color-background: #0a0e0a;
-    --color-surface: #1a1f1a;
-    --color-surface-alt: #2a2a2a;
-    --color-text: #00ff41;
-    --color-text-muted: #1e822a;
-    --color-border: #00ff41;
-    --color-success: #00ff41;
-    --color-warning: #ffa500;
-    --color-sidebar-bg: var(--color-surface);
-    --color-sidebar-item: transparent;
-    --color-sidebar-item-active: var(--color-primary);
-    --color-sidebar-text: var(--color-text);
-    --color-sidebar-text-active: var(--color-on-primary);
-    --color-danger: #ff0000;
-    --color-info: #00aaff;
-    
+
+    /* Biohzard */
+    --color-primary: #00ff66;
+    --color-primary-alt: #00cc52;
+    --color-secondary: #1aff75;
+    --color-secondary-alt: #14cc5d;
+    --color-tertiary: #33ff85;
+    --color-tertiary-alt: #29cc6a;
+    --color-background: #090a09;
+    --color-surface: #111311;
+    --color-surface-alt: #1a1d1a;
+    --color-text: #e6ffe6;
+    --color-text-muted: #4d804d;
+    --color-border: #1a331a;
+    --color-success: #00ff66;
+    --color-warning: #ffcc00;
+    --color-sidebar-bg: #0b0d0b;
+    --color-sidebar-item: #111311;
+    --color-sidebar-item-active: #00ff66;
+    --color-sidebar-text: #00ff66;
+    --color-sidebar-text-active: #000000;
+    --color-danger: #ff1a1a;
+    --color-info: #00ccff;
+
     /* Contrast Colors */
+    --color-on-primary: #000000;
+    --color-on-secondary: #000000;
+    --color-on-success: #000000;
+    --color-on-warning: #000000;
+    --color-on-danger: #ffffff;
+    --color-on-surface: #e6ffe6;
     --color-sidebar-item-active-text: #000000;
   }
 
@@ -109,6 +115,39 @@
     --color-sidebar-item-active-text: #000000;
   }
 
+  :root[data-theme="godzilla-lilac"] {
+    --color-primary: #b04cff;
+    --color-primary-alt: #9a38f0;
+    --color-secondary: #d48cff;
+    --color-secondary-alt: #bc6df6;
+    --color-tertiary: #8e5bff;
+    --color-tertiary-alt: #7442ea;
+    --color-background: #070509;
+    --color-surface: #120b1b;
+    --color-surface-alt: #1d1430;
+    --color-text: #f2e9ff;
+    --color-text-muted: #aa92d4;
+    --color-border: #3b2958;
+    --color-success: #9c7dff;
+    --color-warning: #ffcf5a;
+    --color-danger: #ff5eb6;
+    --color-info: #8d7dff;
+
+    --color-on-primary: #0a0313;
+    --color-on-secondary: #11051d;
+    --color-on-success: #13081f;
+    --color-on-warning: #241600;
+    --color-on-danger: #2c0018;
+    --color-on-surface: #f2e9ff;
+
+    --color-sidebar-background: #090611;
+    --color-sidebar-text: #d9b8ff;
+    --color-sidebar-item: #130c20;
+    --color-sidebar-item-text: #f2e9ff;
+    --color-sidebar-item-active: #b04cff;
+    --color-sidebar-item-active-text: #0a0313;
+  }
+
   /* Custom theme vars will be applied directly via inline styles by the ThemeContext */
 
   body.no-animations * {
@@ -145,6 +184,10 @@
 
 @layer components {
 
+  .font-title {
+    font-family: var(--font-family);
+  }
+
   /* Sidebar styles */
   .sidebar {
     background-color: var(--color-sidebar-background);
@@ -176,15 +219,18 @@
   }
 
   .badge-success {
-    @apply bg-success bg-opacity-20 text-white border border-success border-opacity-50;
+    @apply bg-success text-onSuccess border border-success;
+    opacity: 0.9;
   }
 
   .badge-error {
-    @apply bg-danger bg-opacity-20 text-white border border-danger border-opacity-50 animate-pulse-red;
+    @apply bg-danger text-onDanger border border-danger animate-pulse-red;
+    opacity: 0.9;
   }
 
   .badge-warning {
-    @apply bg-warning bg-opacity-20 text-white border border-warning border-opacity-50;
+    @apply bg-warning text-onWarning border border-warning;
+    opacity: 0.9;
   }
   
   .badge-muted {
@@ -220,6 +266,263 @@
     @apply bg-success text-onSuccess border-success hover:opacity-80;
   }
 
+  .theme-option {
+    @apply rounded-lg border-2 p-4 text-left transition-all duration-300;
+  }
+
+  .theme-option-active {
+    @apply border-primary bg-primary text-onPrimary shadow-lg;
+    box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 35%, transparent);
+  }
+
+  .theme-option-active .settings-theme-selector-title,
+  .theme-option-active .settings-theme-selector-subtitle,
+  .theme-option-active .settings-theme-card-title,
+  .theme-option-active .settings-theme-card-check,
+  .theme-option-active .settings-font-card-check {
+    color: var(--color-on-primary);
+  }
+
+  .theme-option-inactive {
+    @apply border-border bg-surface text-text hover:border-muted hover:bg-surfaceAlt;
+  }
+
+  .settings-theme-selector-option {
+    @apply text-left;
+  }
+
+  .settings-theme-selector-title {
+    color: var(--color-text);
+  }
+
+  .settings-theme-selector-subtitle {
+    color: var(--color-text-muted);
+  }
+
+  .settings-preview-panel {
+    --preview-primary: var(--color-primary);
+    --preview-secondary: var(--color-secondary);
+    --preview-danger: var(--color-danger);
+    --preview-surface: var(--color-surface);
+    --preview-background: var(--color-background);
+    --preview-text: var(--color-text);
+    --preview-muted: var(--color-text-muted);
+    border: 2px solid var(--preview-primary);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, var(--preview-surface) 0%, var(--preview-background) 100%);
+    box-shadow: 0 0 0 1px var(--color-border) inset, 0 0 30px color-mix(in srgb, var(--preview-primary) 15%, transparent);
+  }
+
+  .settings-preview-title-wrap {
+    margin-bottom: 1rem;
+  }
+
+  .settings-preview-title-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--preview-muted);
+  }
+
+  .settings-preview-title {
+    margin-bottom: 0.5rem;
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: var(--preview-primary);
+  }
+
+  .settings-preview-description {
+    font-size: 0.875rem;
+    color: var(--preview-text);
+  }
+
+  .settings-preview-animation-row {
+    margin-top: 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--preview-muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .settings-preview-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background-color: var(--preview-primary);
+  }
+
+  .settings-preview-animations-on .settings-preview-dot {
+    animation: settings-pulse 1.2s ease-in-out infinite;
+  }
+
+  .settings-preview-animations-off .settings-preview-dot {
+    opacity: 0.45;
+  }
+
+  @keyframes settings-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.35); opacity: 1; }
+  }
+
+  .settings-preview-font-terminal {
+    font-family: "Courier New", "Consolas", "Liberation Mono", monospace;
+  }
+
+  .settings-preview-font-horror {
+    font-family: "Creepster", "Nosifer", cursive;
+  }
+
+  .settings-preview-font-military {
+    font-family: "Special Elite", "Courier New", monospace;
+  }
+
+  .settings-preview-theme-modern-horror {
+    --preview-primary: #00ff66;
+    --preview-secondary: #1aff75;
+    --preview-danger: #ff1a1a;
+    --preview-surface: #111311;
+    --preview-background: #090a09;
+    --preview-text: #e6ffe6;
+    --preview-muted: #4d804d;
+  }
+
+  .settings-preview-theme-minimal-black {
+    --preview-primary: #ffffff;
+    --preview-secondary: #888888;
+    --preview-danger: #444444;
+    --preview-surface: #0f0f0f;
+    --preview-background: #050505;
+    --preview-text: #ffffff;
+    --preview-muted: #888888;
+  }
+
+  .settings-preview-theme-godzilla-lilac {
+    --preview-primary: #b04cff;
+    --preview-secondary: #d48cff;
+    --preview-danger: #ff5eb6;
+    --preview-surface: #120b1b;
+    --preview-background: #070509;
+    --preview-text: #f2e9ff;
+    --preview-muted: #aa92d4;
+  }
+
+  .settings-range {
+    accent-color: var(--color-primary);
+  }
+
+  .settings-theme-card {
+    position: relative;
+  }
+
+  .settings-theme-card .settings-theme-card-title {
+    color: var(--color-text);
+  }
+
+  .settings-theme-card-check,
+  .settings-font-card-check {
+    color: var(--color-primary);
+    font-weight: 700;
+  }
+
+  .settings-theme-card-modern-horror {
+    background-color: #111311;
+    border-color: #00ff66;
+  }
+
+  .settings-theme-card-godzilla-lilac {
+    background-color: #120b1b;
+    border-color: #b04cff;
+  }
+
+  .settings-theme-card-minimal-black {
+    background-color: #0f0f0f;
+    border-color: #333333;
+  }
+
+  .settings-swatch {
+    border: 1px solid color-mix(in srgb, #ffffff 14%, transparent);
+  }
+
+  .settings-theme-card-modern-horror .settings-swatch-primary { background-color: #00ff66; }
+  .settings-theme-card-modern-horror .settings-swatch-secondary { background-color: #1aff75; }
+  .settings-theme-card-modern-horror .settings-swatch-tertiary { background-color: #33ff85; }
+  .settings-theme-card-modern-horror .settings-swatch-danger { background-color: #ff1a1a; }
+
+  .settings-theme-card-minimal-black .settings-swatch-primary { background-color: #ffffff; }
+  .settings-theme-card-minimal-black .settings-swatch-secondary { background-color: #888888; }
+  .settings-theme-card-minimal-black .settings-swatch-tertiary { background-color: #444444; }
+  .settings-theme-card-minimal-black .settings-swatch-danger { background-color: #222222; }
+
+  .settings-theme-card-godzilla-lilac .settings-swatch-primary { background-color: #b04cff; }
+  .settings-theme-card-godzilla-lilac .settings-swatch-secondary { background-color: #d48cff; }
+  .settings-theme-card-godzilla-lilac .settings-swatch-tertiary { background-color: #8e5bff; }
+  .settings-theme-card-godzilla-lilac .settings-swatch-danger { background-color: #ff5eb6; }
+
+  .settings-font-card-terminal .settings-font-preview {
+    font-family: "Courier New", "Consolas", "Liberation Mono", monospace;
+  }
+
+  .settings-font-card-horror .settings-font-preview {
+    font-family: "Creepster", "Nosifer", cursive;
+  }
+
+  .settings-font-card-military .settings-font-preview {
+    font-family: "Special Elite", "Courier New", monospace;
+  }
+
+  .settings-reset-card {
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+  }
+
+  .glitch-text {
+    display: inline-block;
+  }
+
+  .glitch-text-anim {
+    animation: glitch-shift 6s infinite steps(2, end);
+  }
+
+  @keyframes glitch-shift {
+    0%, 90%, 100% {
+      transform: translateX(0);
+      text-shadow: none;
+    }
+    92% {
+      transform: translateX(-1px);
+      text-shadow: -2px 0 rgba(255, 0, 0, 0.7);
+    }
+    94% {
+      transform: translateX(1px);
+      text-shadow: 2px 0 rgba(0, 255, 102, 0.75);
+    }
+    96% {
+      transform: translateX(-1px);
+      text-shadow: -1px 0 rgba(255, 255, 255, 0.3);
+    }
+  }
+
+  .setting-switch {
+    @apply inline-flex h-7 w-12 items-center rounded-full border-2 border-border bg-surfaceAlt p-0.5 transition-all duration-200;
+  }
+
+  .setting-switch-on {
+    @apply border-primary bg-primary;
+  }
+
+  .setting-switch-thumb {
+    @apply h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200;
+  }
+
+  .setting-switch-on .setting-switch-thumb {
+    transform: translateX(1rem);
+  }
+
   .btn:disabled {
     @apply opacity-50 cursor-not-allowed;
   }
@@ -235,15 +538,15 @@
   }
 
   .alert-error {
-    @apply bg-danger bg-opacity-20 border-danger text-danger;
+    @apply bg-danger bg-opacity-20 border-danger text-onDanger;
   }
 
   .alert-success {
-    @apply bg-success bg-opacity-20 border-success text-success;
+    @apply bg-success bg-opacity-20 border-success text-onSuccess;
   }
 
   .alert-warning {
-    @apply bg-warning bg-opacity-20 border-warning text-warning;
+    @apply bg-warning bg-opacity-20 border-warning text-onWarning;
   }
 
   /* Loading spinner */
@@ -259,11 +562,17 @@
   }
 
   /* Backward compatibility for Zombie theme classes (optional but safe) */
-  .zombie-card {
+  .app-card {
     @apply bg-surface border border-border rounded-lg p-4 transition-all duration-300;
   }
   
-  .terminal-screen {
+  .console-shell {
     @apply bg-background text-text p-4 rounded border border-primary;
+  }
+
+  .instance-meta-chip {
+    @apply inline-flex items-center px-2.5 py-1 rounded-md border border-border bg-surface text-text;
+    font-size: 11px;
+    line-height: 1;
   }
 }

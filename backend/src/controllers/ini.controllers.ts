@@ -62,7 +62,6 @@ export const getIni = async (req: Request, res: Response) => {
     const configType = ALLOWED_TYPES.includes(String(type)) ? String(type) : 'ini';
     const filePath = getFilePath(instance.iniPath, configType);
 
-    console.log(`Reading Config file at: ${filePath}`);
     const content = await readFile(filePath, 'utf-8');
     res.json({
       success: true,

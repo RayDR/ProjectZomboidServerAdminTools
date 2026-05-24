@@ -13,7 +13,13 @@ exports.validateInstanceName = validateInstanceName;
 const sanitizeInstanceName = (name) => {
     if (!name)
         return '';
-    return name.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
+    return name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .replace(/-+/g, '-')
+        .slice(0, 48);
 };
 exports.sanitizeInstanceName = sanitizeInstanceName;
 const getServiceName = (name) => {

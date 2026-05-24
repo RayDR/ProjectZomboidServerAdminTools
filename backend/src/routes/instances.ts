@@ -23,6 +23,7 @@ const router = Router();
 const upload = multer({ dest: path.join(__dirname, '../../uploads') });
 
 // Tasks monitoring
+router.get('/tasks', auth, (req, res) => { void instancesController.getTasksController(req, res); });
 router.get('/tasks/:taskId', auth, (req, res) => { void instancesController.getTaskController(req, res); });
 
 // Crear instancia desde versión seleccionada
@@ -34,6 +35,7 @@ router.get('/versions', auth, (req, res) => { void instancesController.getAvaila
 router.get('/', auth, (req, res) => { void instancesController.getInstancesController(req, res); });
 router.post('/', auth, (req, res) => { void instancesController.addInstanceController(req, res); });
 router.post('/:instanceId/start', auth, (req, res) => { void instancesController.startInstanceController(req, res); });
+router.post('/:instanceId/retry-install', auth, (req, res) => { void instancesController.retryInstanceInstallController(req, res); });
 router.post('/:instanceId/stop', auth, (req, res) => { void instancesController.stopInstanceController(req, res); });
 router.post('/:instanceId/restart', auth, (req, res) => { void instancesController.restartInstanceController(req, res); });
 router.post('/:instanceId/kill', auth, (req, res) => { void instancesController.forceStopInstanceController(req, res); });

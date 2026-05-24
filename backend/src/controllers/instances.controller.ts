@@ -19,6 +19,7 @@ import { Request, Response } from 'express';
 import { instanceManager } from '../managers/instance.manager';
 import { AppError } from '../utils/errors';
 import { taskManager } from '../managers/task.manager';
+import { instanceInstallQueueManager } from '../managers/instance-install-queue.manager';
 
 const handleError = (res: Response, error: unknown, defaultMessage: string) => {
   if (error instanceof AppError) {
@@ -57,21 +58,68 @@ export const createInstanceFromVersionController = async (req: Request, res: Res
     const name = (body.name || '').trim();
 
     if (!branchId || !name || !serverPort || !rconPort) {
-      res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
+      res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Faltan campos obligatorios / Missing required fields' });
       return;
     }
 
-    const taskId = taskManager.createTask(`Create Instance '${name}'`).id;
+    const { task, queueLength } = instanceInstallQueueManager.enqueue({
+      branchId,
+      name,
+      gamePort: serverPort,
+      rconPort,
+      force: body.force,
+      allowUnknownBranch: Boolean(body.allowUnknownBranch)
+    });
 
-    instanceManager.createInstanceFromVersion(branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch), taskId)
-      .catch(err => {
-        console.error(`[instances.from-version] Task ${taskId} failed:`, err);
-      });
-
-    res.status(202).json({ success: true, taskId, message: 'Instance creation started in background.' });
+    res.status(202).json({
+      success: true,
+      taskId: task.id,
+      task,
+      queueLength,
+      message: queueLength > 1
+        ? `Instance creation queued. ${queueLength - 1} task(s) ahead.`
+        : 'Instance creation started.'
+    });
   } catch (error) {
     handleError(res, error, 'Failed to create instance');
   }
+};
+
+export const retryInstanceInstallController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { instanceId } = req.params as { instanceId: string };
+    if (!instanceId) {
+      res.status(400).json({ success: false, error: true, code: 'VALIDATION_ERROR', message: 'Instance ID is required' });
+      return;
+    }
+
+    const { task, queueLength } = instanceInstallQueueManager.enqueueRetry(instanceId);
+    res.status(202).json({
+      success: true,
+      taskId: task.id,
+      task,
+      queueLength,
+      message: queueLength > 1
+        ? `Instance retry queued. ${queueLength - 1} task(s) ahead.`
+        : 'Instance retry started.'
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to retry instance installation');
+  }
+};
+
+export const getTasksController = (req: Request, res: Response): void => {
+  const kindQuery = typeof req.query.kind === 'string' ? req.query.kind.trim() : '';
+  const activeOnly = req.query.activeOnly === 'true';
+  const limit = Number(req.query.limit);
+
+  const tasks = taskManager.getAllTasks({
+    kind: kindQuery === 'instance_install' ? 'instance_install' : undefined,
+    activeOnly,
+    limit: Number.isFinite(limit) ? limit : undefined
+  });
+
+  res.json({ success: true, data: tasks });
 };
 
 /**
@@ -94,7 +142,44 @@ export const getAvailableVersionsController = async (_req: Request, res: Respons
 export const getInstancesController = async (_req: Request, res: Response): Promise<void> => {
   try {
     const instances = await instanceManager.listInstances();
-    res.json({ success: true, data: instances });
+    const activeInstallTasks = taskManager.getAllTasks({ kind: 'instance_install', activeOnly: true, limit: 200 });
+
+    const provisioned = activeInstallTasks
+      .filter((task) => task?.metadata?.instanceId)
+      .map((task) => {
+        const metadata = task.metadata || {};
+        const installationStatus = task.status === 'running' ? 'installing' : 'queued';
+        const queuePosition = typeof metadata.queuePosition === 'number' ? metadata.queuePosition : 0;
+        const instanceId = String(metadata.instanceId || '');
+
+        return {
+          id: instanceId,
+          name: metadata.instanceName || instanceId,
+          description: `Provisioning from branch ${metadata.branchId || 'unknown'}`,
+          version: metadata.branchId || 'unknown',
+          serviceName: `pzomboid-${instanceId}`,
+          pzDir: `/opt/pzserver-${instanceId}`,
+          pzName: `pzserver-${instanceId}`,
+          logPath: `/opt/pzserver-${instanceId}/logs/server.log`,
+          maintenanceLogPath: `/opt/pzserver-${instanceId}/logs/maintenance.log`,
+          iniPath: `/home/pzadmin/Zomboid/Server/pzserver-${instanceId}.ini`,
+          savePath: `/home/pzadmin/Zomboid/Saves/Multiplayer/pzserver-${instanceId}`,
+          db: `/home/pzadmin/Zomboid/db/pzserver-${instanceId}.db`,
+          rconPort: Number(metadata.rconPort) || 0,
+          gamePort: Number(metadata.gamePort) || 0,
+          running: false,
+          pid: undefined,
+          broken: false,
+          installationTaskId: task.id,
+          installationStatus,
+          installationLocked: true,
+          installationProgress: task.progress || 0,
+          installationQueuePosition: queuePosition
+        };
+      })
+      .filter((taskInstance) => !instances.some((instance) => instance.id === taskInstance.id));
+
+    res.json({ success: true, data: [...instances, ...provisioned] });
   } catch (error) {
     handleError(res, error, 'Failed to get instances');
   }
@@ -156,7 +241,7 @@ export const getTaskController = (req: Request, res: Response): void => {
   const { taskId } = req.params as { taskId: string };
   const task = taskManager.getTask(taskId);
   if (!task) {
-    res.status(404).json({ success: false, error: true, code: 'NOT_FOUND', message: 'Task not found' });
+    res.status(404).json({ success: false, error: true, code: 'NOT_FOUND', message: 'Tarea no encontrada / Task not found' });
     return;
   }
   res.json({ success: true, data: task });
@@ -171,7 +256,7 @@ export const deleteInstanceController = async (req: Request, res: Response): Pro
     const { createBackup, force } = req.body as { createBackup: boolean, force?: boolean };
     const forceDelete = force || req.query.force === 'true';
     await instanceManager.deleteInstance(instanceId, !!createBackup, forceDelete);
-    res.json({ success: true, message: 'Instance deleted successfully' });
+    res.json({ success: true, message: 'Instancia eliminada correctamente / Instance deleted successfully' });
   } catch (error) {
     handleError(res, error, 'Failed to delete instance');
   }
@@ -209,15 +294,24 @@ export const addInstanceController = async (req: Request, res: Response): Promis
         return;
       }
 
-      const taskId = taskManager.createTask(`Create Instance '${name}'`).id;
-      
-      // Do not await, let it run in background
-      instanceManager.createInstanceFromVersion(body.branchId, name, serverPort, rconPort, body.force, Boolean(body.allowUnknownBranch), taskId)
-        .catch(err => {
-          console.error(`[instances.create] Task ${taskId} failed:`, err);
-        });
+      const { task, queueLength } = instanceInstallQueueManager.enqueue({
+        branchId: body.branchId,
+        name,
+        gamePort: serverPort,
+        rconPort,
+        force: body.force,
+        allowUnknownBranch: Boolean(body.allowUnknownBranch)
+      });
 
-      res.status(202).json({ success: true, taskId, message: 'Instance creation started in background.' });
+      res.status(202).json({
+        success: true,
+        taskId: task.id,
+        task,
+        queueLength,
+        message: queueLength > 1
+          ? `Instance creation queued. ${queueLength - 1} task(s) ahead.`
+          : 'Instance creation started.'
+      });
       return;
     }
 

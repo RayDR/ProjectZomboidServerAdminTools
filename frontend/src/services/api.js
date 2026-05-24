@@ -24,6 +24,9 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('mustChangePassword');
+      window.dispatchEvent(new Event('pzwebadmin-auth-changed'));
       // Only redirect if not already on login page
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

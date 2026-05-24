@@ -12,16 +12,42 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
  */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loginUser = void 0;
+const bcrypt_1 = __importDefault(require("bcrypt"));
+const crypto_1 = __importDefault(require("crypto"));
+const users_repository_1 = require("../repositories/users.repository");
 /**
- * Login controller: validates password and returns a static token.
+ * Login controller: validates the admin password against the users table and creates a session token.
  */
 const loginUser = async (req, res) => {
-    const { password } = req.body;
-    if (password === 'admin123') {
-        return res.json({ token: 'secret123' });
+    const { username = 'admin', password } = req.body;
+    if (!password) {
+        return res.status(400).json({ error: 'Password required' });
     }
-    return res.status(401).json({ error: 'Unauthorized' });
+    const user = await users_repository_1.usersRepository.getAuthUserByUsername(String(username || 'admin').trim() || 'admin');
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const ok = await bcrypt_1.default.compare(String(password), user.password_hash);
+    if (!ok) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const token = crypto_1.default.randomUUID();
+    await users_repository_1.usersRepository.createSession(user.id, token);
+    return res.json({
+        token,
+        user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            displayName: user.display_name,
+            isAdmin: Boolean(user.is_admin),
+            mustChangePassword: Boolean(user.must_change_password)
+        }
+    });
 };
 exports.loginUser = loginUser;

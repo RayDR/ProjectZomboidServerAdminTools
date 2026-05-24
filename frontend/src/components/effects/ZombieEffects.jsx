@@ -30,31 +30,13 @@ export const BloodDrip = ({ delay = 0 }) => {
 // Glitch text effect
 export const GlitchText = ({ children, className }) => {
   const { settings } = useTheme();
-  
-  if (!settings.animations) {
-    return <span className={className}>{children}</span>;
-  }
-  
+
+  const animationClass = settings.animations ? 'glitch-text-anim' : '';
+
   return (
-    <motion.span
-      className={`glitch ${className}`}
-      animate={{
-        x: [0, -2, 2, -2, 2, 0],
-        textShadow: [
-          '0 0 0px rgba(0,255,0,0)',
-          '-2px 0 5px rgba(255,0,0,0.8)',
-          '2px 0 5px rgba(0,255,0,0.8)',
-          '0 0 0px rgba(0,255,0,0)',
-        ],
-      }}
-      transition={{
-        duration: 0.2,
-        repeat: Infinity,
-        repeatDelay: 5 + Math.random() * 10,
-      }}
-    >
+    <span className={`glitch-text ${animationClass} ${className || ''}`.trim()}>
       {children}
-    </motion.span>
+    </span>
   );
 };
 
@@ -76,7 +58,7 @@ export const TerminalText = ({ text, speed = 50, onComplete }) => {
   }, [currentIndex, text, speed, onComplete]);
 
   return (
-    <span className="font-mono text-terminal-text">
+    <span className="font-mono text-text">
       {displayText}
       {currentIndex < text.length && (
         <motion.span
@@ -94,7 +76,7 @@ export const TerminalText = ({ text, speed = 50, onComplete }) => {
 // CRT Screen effect wrapper
 export const CRTScreen = ({ children, className }) => {
   return (
-    <div className={`terminal-screen relative overflow-hidden ${className}`}>
+    <div className={`console-shell relative overflow-hidden ${className}`}>
       <ScannerLine />
       <div className="relative z-10">{children}</div>
     </div>
@@ -200,7 +182,7 @@ export const LoadingScreen = ({ message = 'LOADING...' }) => {
       >
         ☣️
       </motion.div>
-      <GlitchText className="text-4xl font-bold text-terminal-text text-shadow-terminal">
+      <GlitchText className="text-4xl font-bold text-text text-shadow-terminal">
         {message}
       </GlitchText>
       <div className="mt-8 flex space-x-2">

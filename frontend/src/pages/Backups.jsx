@@ -73,7 +73,6 @@ const Backups = () => {
   };
 
   const restoreBackup = async () => {
-    // TODO: Implement restore functionality in backend
     toast.error('Restore functionality coming soon');
     setShowRestoreModal(false);
   };
@@ -87,7 +86,7 @@ const Backups = () => {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-terminal-text text-shadow-terminal font-zombie mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-text text-shadow-terminal font-title mb-2">
             <GlitchText>{t('backups.title')}</GlitchText>
           </h1>
           <p className="text-zombie-green text-sm sm:text-base">
@@ -120,8 +119,8 @@ const Backups = () => {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-terminal-text opacity-70 uppercase tracking-wide">{t('backups.size')}</p>
-              <h3 className="text-xl sm:text-2xl font-bold text-terminal-text mt-1">
+              <p className="text-sm text-text opacity-70 uppercase tracking-wide">{t('backups.size')}</p>
+              <h3 className="text-xl sm:text-2xl font-bold text-text mt-1">
                 {backups.reduce((acc, b) => acc + b.size, 0) > 0 
                   ? (backups.reduce((acc, b) => acc + b.size, 0) / 1024 / 1024 / 1024).toFixed(2) + ' GB'
                   : '0 MB'}
@@ -136,8 +135,8 @@ const Backups = () => {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-terminal-text opacity-70 uppercase tracking-wide">{t('dashboard.started')}</p>
-              <h3 className="text-sm font-bold text-terminal-text mt-1">
+              <p className="text-sm text-text opacity-70 uppercase tracking-wide">{t('dashboard.started')}</p>
+              <h3 className="text-sm font-bold text-text mt-1">
                 {backups.length > 0 
                   ? new Date(backups[0].created).toLocaleDateString()
                   : 'N/A'}
@@ -152,7 +151,7 @@ const Backups = () => {
 
       {/* Backups List */}
       <Card>
-        <h2 className="text-2xl font-bold text-terminal-text mb-4 flex items-center">
+        <h2 className="text-2xl font-bold text-text mb-4 flex items-center">
           <FaHistory className="mr-2" /> {t('backups.available')}
         </h2>
         
@@ -184,7 +183,7 @@ const Backups = () => {
                     className="border-b border-gray-700 hover:bg-zombie-gray-dark transition-colors"
                   >
                     <td className="p-3">
-                      <div className="font-mono text-terminal-text text-sm">
+                      <div className="font-mono text-text text-sm">
                         {new Date(backup.created).toLocaleString()}
                       </div>
                       <div className="text-xs text-gray-500 sm:hidden mt-1">
@@ -237,7 +236,7 @@ const Backups = () => {
                   </p>
                   <p className="text-gray-300 text-sm">
                     This will stop the server and restore the backup:<br/>
-                    <span className="font-mono text-terminal-text">
+                    <span className="font-mono text-text">
                       {selectedBackup?.filename}
                     </span>
                   </p>

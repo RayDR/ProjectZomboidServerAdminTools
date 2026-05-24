@@ -12,8 +12,8 @@ export default function LoginForm({ onLogin }) {
     });
     if (res.ok) {
       const data = await res.json();
-      console.log('[LOGIN] Token recibido del backend:', data.token);
       localStorage.setItem('token', data.token);
+      window.dispatchEvent(new Event('pzwebadmin-auth-changed'));
       onLogin();
     } else {
       alert('Login failed');

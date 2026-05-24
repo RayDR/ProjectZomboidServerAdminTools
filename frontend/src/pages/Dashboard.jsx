@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   FaServer, FaUsers, FaMemory, FaClock, FaHdd, FaPlus,
@@ -9,6 +9,7 @@ import { Card, Badge, Button } from '../components/ui';
 import { GlitchText, WarningFlash } from '../components/effects/ZombieEffects';
 import AddInstanceModal from '../components/AddInstanceModal';
 import InstanceDetailsModal from '../components/InstanceDetailsModal';
+import InstallTaskModal from '../components/InstallTaskModal';
 import { useTranslation } from '../i18n/index.jsx';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -22,13 +23,31 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [selectedInstance, setSelectedInstance] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedInstallTaskId, setSelectedInstallTaskId] = useState(null);
   const [systemLoad, setSystemLoad] = useState(0);
   const [showStats, setShowStats] = useState({ cpu: false, memory: false });
+  const fetchInFlightRef = useRef(false);
   const { t } = useTranslation();
+
+  const formatBytes = (bytes) => {
+    if (!Number.isFinite(bytes) || bytes <= 0) return '-';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let value = bytes;
+    let idx = 0;
+    while (value >= 1024 && idx < units.length - 1) {
+      value /= 1024;
+      idx += 1;
+    }
+    return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[idx]}`;
+  };
 
   const toggleStat = (type) => setShowStats(prev => ({ ...prev, [type]: !prev[type] }));
 
   const fetchData = async () => {
+    if (fetchInFlightRef.current) {
+      return;
+    }
+    fetchInFlightRef.current = true;
     try {
       const [instancesRes, healthRes] = await Promise.all([
         api.get('/instances'),
@@ -46,6 +65,7 @@ const Dashboard = () => {
       console.error(err);
       setError('Failed to load system data');
     } finally {
+      fetchInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -59,29 +79,58 @@ const Dashboard = () => {
   const handleInstanceAction = async (e, id, action) => {
     e.stopPropagation(); // Prevent opening modal
     try {
+      if (action === 'refresh') {
+        await fetchData();
+        return;
+      }
+
       let endpoint = '';
       switch (action) {
         case 'start': endpoint = `/instances/${id}/start`; break;
         case 'stop': endpoint = `/instances/${id}/stop`; break;
         case 'restart': endpoint = `/instances/${id}/restart`; break;
         case 'kill': endpoint = `/instances/${id}/kill`; break;
+        case 'retry-install': endpoint = `/instances/${id}/retry-install`; break;
       }
 
-      toast.loading(`Executing ${action}...`, { id: 'action-toast' });
+      if (!endpoint) {
+        toast.error(t('dashboardInline.unsupportedAction'), { id: 'action-toast' });
+        return;
+      }
+
+      toast.loading(`${t('dashboardInline.executingAction')} ${action}...`, { id: 'action-toast' });
       const res = await api.post(endpoint);
 
       if (res.data.success) {
         toast.success(res.data.message, { id: 'action-toast' });
-        fetchData();
+        if (action === 'retry-install' && res.data?.taskId) {
+          setSelectedInstallTaskId(res.data.taskId);
+        }
+        await fetchData();
       } else {
-        toast.error('Action failed', { id: 'action-toast' });
+        toast.error(t('dashboardInline.actionFailed'), { id: 'action-toast' });
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Action failed', { id: 'action-toast' });
+      toast.error(err.response?.data?.message || t('dashboardInline.actionFailed'), { id: 'action-toast' });
     }
   };
+  const canRetryInstall = (instance) => !instance.running && (instance.broken || instance.installationStatus === 'failed' || instance.shutdownReason === 'installation_failed');
+
 
   const handleOpenInstance = (instance) => {
+    if (
+      !instance.running &&
+      instance.installationTaskId
+      && (
+        instance.installationLocked
+        || instance.installationStatus === 'failed'
+        || instance.installationStatus === 'running'
+        || instance.installationStatus === 'pending'
+      )
+    ) {
+      setSelectedInstallTaskId(instance.installationTaskId);
+      return;
+    }
     setSelectedInstance(instance);
   };
 
@@ -104,7 +153,7 @@ const Dashboard = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-terminal-text font-zombie">
+          <h1 className="text-3xl font-bold text-text font-title">
             <GlitchText>{t('dashboard.title')}</GlitchText>
           </h1>
           <p className="text-zombie-green opacity-80">{t('dashboard.subtitle')}</p>
@@ -154,7 +203,7 @@ const Dashboard = () => {
           <div className="w-full bg-gray-700 h-1 mt-2 rounded-full overflow-hidden">
             <div className="bg-blue-400 h-full transition-all duration-500" style={{ width: `${health?.memory?.percent || 0}%` }}></div>
           </div>
-          {showStats.memory && <p className="text-xs text-gray-500 mt-1">Used / Total</p>}
+          {showStats.memory && <p className="text-xs text-gray-500 mt-1">{t('dashboardInline.usedTotal')}</p>}
         </Card>
 
         {/* Disk */}
@@ -188,7 +237,7 @@ const Dashboard = () => {
       </div>
 
       {/* Instances Grid */}
-      <h2 className="text-2xl font-bold text-terminal-text mt-8 flex items-center">
+      <h2 className="text-2xl font-bold text-text mt-8 flex items-center">
         <FaServer className="mr-2" /> {t('dashboard.instances')}
       </h2>
 
@@ -222,12 +271,18 @@ const Dashboard = () => {
 
               {/* Status Badge moved to bottom to not overlap background icon */}
               <div className="mb-4 flex flex-wrap gap-2">
-                <Badge variant={instance.running ? 'success' : 'error'}>
-                  {instance.running ? t('nav.online') : t('nav.offline')}
-                </Badge>
+                {!instance.running && instance.installationStatus ? (
+                  <Badge variant="warning">
+                    {instance.installationStatus === 'installing' ? t('dashboardInline.installing') : t('dashboardInline.queued')}
+                  </Badge>
+                ) : (
+                  <Badge variant={instance.running ? 'success' : 'error'}>
+                    {instance.running ? t('nav.online') : t('nav.offline')}
+                  </Badge>
+                )}
                 {instance.broken && (
                   <Badge variant="warning">
-                    ⚠️ Corrupta / Rota
+                    {`⚠️ ${t('dashboardInline.broken')}`}
                   </Badge>
                 )}
               </div>
@@ -235,69 +290,115 @@ const Dashboard = () => {
               {/* Stats (if running) */}
               <div className="grid grid-cols-2 gap-2 mb-4 relative z-10 bg-black bg-opacity-20 p-2 rounded">
                 <div className="text-center">
-                  <p className="text-xs text-gray-500">{t('instances.port')}</p>
+                  <p className="text-xs text-gray-500">{t('instances.gamePort')}</p>
                   <p className="font-mono text-sm">{instance.gamePort}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs text-gray-500">{t('instances.pid')}</p>
-                  <p className="font-mono text-sm">{instance.pid || '-'}</p>
+                  <p className="text-xs text-gray-500">{!instance.running && instance.installationStatus ? t('dashboardInline.queue') : t('dashboardInline.rcon')}</p>
+                  <p className="font-mono text-sm">{!instance.running && instance.installationStatus ? (instance.installationQueuePosition || '-') : (instance.rconPort || '-')}</p>
+                </div>
+                <div className="col-span-2 text-center">
+                  <p className="text-xs text-gray-500">{t('instanceDetails.processUsageLabel')}</p>
+                  <p className="font-mono text-xs">
+                    {instance.running
+                      ? `${t('instanceDetails.cpuLabel')} ${Number.isFinite(instance.processCpuPercent) ? instance.processCpuPercent.toFixed(1) + '%' : '-'} | ${t('instanceDetails.memoryLabel')} ${formatBytes(instance.processMemoryBytes)}`
+                      : '-'}
+                  </p>
                 </div>
               </div>
 
               {/* Controls */}
               <div className="flex space-x-2 relative z-10 mt-auto">
-                {!instance.running ? (
-                  !instance.running && instance.shutdownReason !== 'manual' && instance.shutdownReason !== 'acknowledged' ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="flex-1 bg-red-900 hover:bg-red-800 text-white animate-pulse"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          await api.patch(`/instances/${instance.id}`, { shutdownReason: 'acknowledged' });
-                          fetchData();
-                        } catch (err) { toast.error('Failed to ack'); }
-                      }}
-                    >
-                      <FaExclamationTriangle className="mr-1" /> Acknowledge Crash
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      className="flex-1"
-                      onClick={(e) => handleInstanceAction(e, instance.id, 'start')}
-                    >
-                      <FaPlay className="mr-1" /> {t('instances.play')}
-                    </Button>
-                  )
-                ) : (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="warning"
-                      className="flex-1"
-                      onClick={(e) => handleInstanceAction(e, instance.id, 'restart')}
-                    >
-                      <FaRedo className="mr-1" /> {t('instances.reboot')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      className="flex-1"
-                      onClick={(e) => handleInstanceAction(e, instance.id, 'stop')}
-                    >
-                      <FaStop className="mr-1" /> {t('instances.stop')}
-                    </Button>
-                  </>
-                )}
+                {(() => {
+                  if (!instance.running && instance.installationLocked) {
+                    return (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (instance.installationTaskId) {
+                            setSelectedInstallTaskId(instance.installationTaskId);
+                          }
+                        }}
+                      >
+                        {instance.installationStatus === 'installing' ? t('dashboardInline.viewProgress') : t('dashboardInline.waiting')}
+                      </Button>
+                    );
+                  }
+
+                  if (!instance.running && instance.shutdownReason !== 'manual' && instance.shutdownReason !== 'acknowledged') {
+                    return (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="flex-1 bg-red-900 hover:bg-red-800 text-white animate-pulse"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await api.patch(`/instances/${instance.id}`, { shutdownReason: 'acknowledged' });
+                              await fetchData();
+                            } catch (err) { toast.error(t('dashboardInline.failedToAcknowledge')); }
+                          }}
+                        >
+                          <FaExclamationTriangle className="mr-1" /> {t('dashboardInline.acknowledgeCrash')}
+                        </Button>
+                        {canRetryInstall(instance) && (
+                          <Button
+                            size="sm"
+                            variant="warning"
+                            className="flex-1"
+                            onClick={(e) => handleInstanceAction(e, instance.id, 'retry-install')}
+                          >
+                            <FaRedo className="mr-1" /> {t('dashboardInline.retry')}
+                          </Button>
+                        )}
+                      </>
+                    );
+                  }
+
+                  if (!instance.running) {
+                    return (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        className="flex-1"
+                        onClick={(e) => handleInstanceAction(e, instance.id, 'start')}
+                      >
+                        <FaPlay className="mr-1" /> {t('instances.play')}
+                      </Button>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="warning"
+                        className="flex-1"
+                        onClick={(e) => handleInstanceAction(e, instance.id, 'restart')}
+                      >
+                        <FaRedo className="mr-1" /> {t('instances.reboot')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        className="flex-1"
+                        onClick={(e) => handleInstanceAction(e, instance.id, 'stop')}
+                      >
+                        <FaStop className="mr-1" /> {t('instances.stop')}
+                      </Button>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Status message or reason */}
               {instance.shutdownReason && !instance.running && instance.shutdownReason !== 'manual' && instance.shutdownReason !== 'acknowledged' && (
                 <div className="mt-2 text-xs text-red-400 font-bold">
-                  {t('instances.lastStop')}: {instance.shutdownReason || 'CRASHED'}
+                  {t('instances.lastStop')}: {instance.shutdownReason || t('dashboardInline.crashed')}
                 </div>
               )}
             </Card>
@@ -326,6 +427,24 @@ const Dashboard = () => {
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onInstanceAdded={fetchData}
+        onInstallQueued={(task) => {
+          void fetchData();
+          if (task?.id) {
+            setSelectedInstallTaskId(task.id);
+          }
+        }}
+        onInstallFailed={(task) => {
+          void fetchData();
+          if (task?.id) {
+            setSelectedInstallTaskId(task.id);
+          }
+        }}
+      />
+
+      <InstallTaskModal
+        isOpen={!!selectedInstallTaskId}
+        onClose={() => setSelectedInstallTaskId(null)}
+        taskId={selectedInstallTaskId}
       />
     </div>
   );

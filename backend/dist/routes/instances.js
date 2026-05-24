@@ -57,6 +57,7 @@ const path_1 = __importDefault(require("path"));
 const router = (0, express_1.Router)();
 const upload = (0, multer_1.default)({ dest: path_1.default.join(__dirname, '../../uploads') });
 // Tasks monitoring
+router.get('/tasks', auth_1.auth, (req, res) => { void instancesController.getTasksController(req, res); });
 router.get('/tasks/:taskId', auth_1.auth, (req, res) => { void instancesController.getTaskController(req, res); });
 // Crear instancia desde versión seleccionada
 router.post('/from-version', auth_1.auth, (req, res) => { void instancesController.createInstanceFromVersionController(req, res); });
@@ -66,6 +67,7 @@ router.get('/versions', auth_1.auth, (req, res) => { void instancesController.ge
 router.get('/', auth_1.auth, (req, res) => { void instancesController.getInstancesController(req, res); });
 router.post('/', auth_1.auth, (req, res) => { void instancesController.addInstanceController(req, res); });
 router.post('/:instanceId/start', auth_1.auth, (req, res) => { void instancesController.startInstanceController(req, res); });
+router.post('/:instanceId/retry-install', auth_1.auth, (req, res) => { void instancesController.retryInstanceInstallController(req, res); });
 router.post('/:instanceId/stop', auth_1.auth, (req, res) => { void instancesController.stopInstanceController(req, res); });
 router.post('/:instanceId/restart', auth_1.auth, (req, res) => { void instancesController.restartInstanceController(req, res); });
 router.post('/:instanceId/kill', auth_1.auth, (req, res) => { void instancesController.forceStopInstanceController(req, res); });

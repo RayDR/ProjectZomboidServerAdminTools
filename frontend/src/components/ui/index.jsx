@@ -57,7 +57,7 @@ export const Card = ({ children, className, hover = true, ...props }) => {
 
   return (
     <Component
-      className={clsx('zombie-card', className)}
+      className={clsx('app-card', className)}
       {...motionProps}
       {...props}
     >
@@ -118,12 +118,12 @@ export const Modal = ({ isOpen, onClose, title, children, className }) => {
       >
         {title && (
           <div className="border-b-2 border-zombie-green p-4 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-terminal-text text-shadow-terminal">
+            <h2 className="text-2xl font-bold text-text text-shadow-terminal">
               {title}
             </h2>
             <button
               onClick={onClose}
-              className="text-3xl text-terminal-text hover:text-zombie-blood transition-colors"
+              className="text-3xl text-text hover:text-zombie-blood transition-colors"
             >
               ×
             </button>
@@ -139,7 +139,7 @@ export const Input = ({ label, error, className, ...props }) => {
   return (
     <div className="mb-4">
       {label && (
-        <label className="block text-terminal-text mb-2 font-bold uppercase text-sm">
+        <label className="block text-text mb-2 font-bold uppercase text-sm">
           {label}
         </label>
       )}

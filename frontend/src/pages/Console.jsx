@@ -120,7 +120,7 @@ const Console = () => {
       case 'error':
         return 'text-zombie-blood';
       case 'success':
-        return 'text-terminal-text';
+        return 'text-text';
       default:
         return 'text-gray-300';
     }
@@ -131,7 +131,7 @@ const Console = () => {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-terminal-text text-shadow-terminal font-zombie mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-text text-shadow-terminal font-title mb-2">
             <GlitchText>{t('console.title')}</GlitchText>
           </h1>
           <p className="text-zombie-green text-sm sm:text-base">
@@ -234,7 +234,7 @@ const Console = () => {
               onKeyDown={handleKeyDown}
               placeholder={t('console.commandPlaceholder')}
               disabled={executing}
-              className="input pl-8 font-mono bg-black bg-opacity-50 border-zombie-green text-terminal-text w-full"
+              className="input pl-8 font-mono bg-black bg-opacity-50 border-zombie-green text-text w-full"
               autoFocus
             />
           </div>

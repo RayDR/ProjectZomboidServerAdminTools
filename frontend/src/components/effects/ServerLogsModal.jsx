@@ -121,13 +121,13 @@ const ServerLogsModal = ({ isOpen, onClose, operation, endpoint }) => {
                 {isComplete && !isSuccess && (
                   <FaExclamationTriangle className="text-zombie-blood text-xl" />
                 )}
-                <h2 className="text-xl font-bold text-terminal-text uppercase tracking-wide">
+                <h2 className="text-xl font-bold text-text uppercase tracking-wide">
                   {operation} - {isComplete ? (isSuccess ? 'Completado' : 'Fallido') : 'En Progreso'}
                 </h2>
               </div>
               <button
                 onClick={handleClose}
-                className="text-terminal-text hover:text-zombie-blood transition-colors"
+                className="text-text hover:text-zombie-blood transition-colors"
                 disabled={!isComplete}
               >
                 <FaTimes className="text-2xl" />
@@ -156,7 +156,7 @@ const ServerLogsModal = ({ isOpen, onClose, operation, endpoint }) => {
               <div ref={logsEndRef} />
               
               {!isComplete && logs.length === 0 && (
-                <div className="text-terminal-text opacity-50 text-center py-8">
+                <div className="text-text opacity-50 text-center py-8">
                   Esperando respuesta del servidor...
                 </div>
               )}

@@ -39,13 +39,15 @@ class TaskManager {
     constructor() {
         this.tasks = new Map();
     }
-    createTask(name) {
+    createTask(name, options = {}) {
         const task = {
             id: crypto.randomUUID(),
             name,
+            kind: options.kind || 'generic',
             status: 'pending',
             progress: 0,
             logs: [],
+            metadata: options.metadata || {},
             createdAt: Date.now(),
             updatedAt: Date.now(),
         };
@@ -55,8 +57,20 @@ class TaskManager {
     getTask(id) {
         return this.tasks.get(id);
     }
-    getAllTasks() {
-        return Array.from(this.tasks.values()).sort((a, b) => b.createdAt - a.createdAt);
+    getAllTasks(query = {}) {
+        const activeStatuses = ['pending', 'running'];
+        let tasks = Array.from(this.tasks.values());
+        if (query.kind) {
+            tasks = tasks.filter((task) => task.kind === query.kind);
+        }
+        if (query.activeOnly) {
+            tasks = tasks.filter((task) => activeStatuses.includes(task.status));
+        }
+        tasks = tasks.sort((a, b) => b.createdAt - a.createdAt);
+        if (query.limit && query.limit > 0) {
+            tasks = tasks.slice(0, query.limit);
+        }
+        return tasks;
     }
     updateTaskStatus(id, status, progress, error) {
         const task = this.tasks.get(id);
@@ -78,6 +92,16 @@ class TaskManager {
         if (task.logs.length > 1000) {
             task.logs = task.logs.slice(-1000);
         }
+        task.updatedAt = Date.now();
+    }
+    updateTaskMetadata(id, metadata) {
+        const task = this.tasks.get(id);
+        if (!task)
+            return;
+        task.metadata = {
+            ...(task.metadata || {}),
+            ...metadata
+        };
         task.updatedAt = Date.now();
     }
     setTaskResult(id, result) {

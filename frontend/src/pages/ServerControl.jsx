@@ -135,7 +135,7 @@ const ServerControl = () => {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-terminal-text text-shadow-terminal font-zombie mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-text text-shadow-terminal font-title mb-2">
             <GlitchText>{t('serverControl.title') || 'SERVER CONTROL'}</GlitchText>
           </h1>
           <p className="text-zombie-green text-sm sm:text-base">
@@ -158,7 +158,7 @@ const ServerControl = () => {
               {isRunning ? <FaCheckCircle /> : <FaTimesCircle />}
             </div>
             <div>
-              <h2 className="text-3xl font-bold text-terminal-text">
+              <h2 className="text-3xl font-bold text-text">
                 {isRunning ? t('nav.online') || 'ONLINE' : t('nav.offline') || 'OFFLINE'}
               </h2>
               <p className="text-gray-400">
@@ -183,21 +183,21 @@ const ServerControl = () => {
               <FaClock className="text-zombie-green text-2xl" />
               <div>
                 <p className="text-gray-400 text-sm">{t('dashboard.uptime') || 'Uptime'}</p>
-                <p className="text-terminal-text font-bold">{formatUptimeFromSeconds(localUptime)}</p>
+                <p className="text-text font-bold">{formatUptimeFromSeconds(localUptime)}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <FaMemory className="text-zombie-green text-2xl" />
               <div>
                 <p className="text-gray-400 text-sm">{t('dashboard.memoryUsage') || 'Memory'}</p>
-                <p className="text-terminal-text font-bold">{serverStatus?.memory || 'N/A'}</p>
+                <p className="text-text font-bold">{serverStatus?.memory || 'N/A'}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <FaServer className="text-zombie-green text-2xl" />
               <div>
                 <p className="text-gray-400 text-sm">PID</p>
-                <p className="text-terminal-text font-bold">{serverStatus?.pid || 'N/A'}</p>
+                <p className="text-text font-bold">{serverStatus?.pid || 'N/A'}</p>
               </div>
             </div>
           </div>
@@ -208,7 +208,7 @@ const ServerControl = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Primary Controls */}
         <Card>
-          <h3 className="text-xl font-bold text-terminal-text mb-4 flex items-center space-x-2">
+          <h3 className="text-xl font-bold text-text mb-4 flex items-center space-x-2">
             <FaServer />
             <span>{t('serverControl.primaryControls') || 'PRIMARY CONTROLS'}</span>
           </h3>
@@ -247,7 +247,7 @@ const ServerControl = () => {
 
         {/* Maintenance */}
         <Card>
-          <h3 className="text-xl font-bold text-terminal-text mb-4 flex items-center space-x-2">
+          <h3 className="text-xl font-bold text-text mb-4 flex items-center space-x-2">
             <FaDownload />
             <span>{t('serverControl.maintenance') || 'MAINTENANCE'}</span>
           </h3>

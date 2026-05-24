@@ -16,6 +16,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const auth_controller_1 = require("../controllers/auth.controller");
+const users_controller_1 = require("../controllers/users.controller");
+const users_repository_1 = require("../repositories/users.repository");
 /**
  * Async handler wrapper to standardize Express async error handling.
  */
@@ -31,6 +33,17 @@ router.post('/login', asyncHandler(auth_controller_1.loginUser));
  * Protected route to test authentication.
  */
 router.get('/profile', auth_1.auth, asyncHandler(async (req, res) => {
-    res.json({ message: 'Authenticated', user: req.user });
+    const userId = req.user?.id;
+    if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    const user = await users_repository_1.usersRepository.getUserById(userId);
+    if (!user) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+    }
+    res.json({ message: 'Authenticated', user });
 }));
+router.post('/change-password', auth_1.auth, asyncHandler(users_controller_1.changeOwnPasswordController));
 exports.default = router;

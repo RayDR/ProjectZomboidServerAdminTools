@@ -83,6 +83,7 @@ class InstanceManager {
         }
         const candidates = [
             `/home/pzadmin/Zomboid/Server/${instance.pzName}.ini`,
+            `/home/pzadmin/Zomboid/Server/pzserver-${instance.id}.ini`,
             `/home/pzadmin/Zomboid/Server/pz${instance.id}.ini`
         ];
         for (const candidate of candidates) {
@@ -164,6 +165,24 @@ class InstanceManager {
         this.repository = repository;
         this.systemd = systemd;
     }
+    async getProcessUsage(pid) {
+        try {
+            const { stdout } = await execFilePromise('ps', ['-p', pid, '-o', '%cpu=,rss=']);
+            const parts = String(stdout || '').trim().split(/\s+/);
+            if (parts.length < 2) {
+                return {};
+            }
+            const cpu = Number(parts[0]);
+            const rssKb = Number(parts[1]);
+            return {
+                processCpuPercent: Number.isFinite(cpu) ? cpu : undefined,
+                processMemoryBytes: Number.isFinite(rssKb) ? rssKb * 1024 : undefined
+            };
+        }
+        catch {
+            return {};
+        }
+    }
     async listInstances() {
         const instances = await this.repository.readAll();
         const statusPromises = instances.map(async (instance) => {
@@ -182,15 +201,19 @@ class InstanceManager {
                 const { stdout } = await this.systemd.execute('is-active', instance.serviceName);
                 const running = stdout.trim() === 'active';
                 let pid = undefined;
+                let processUsage = {};
                 if (running) {
                     try {
                         pid = await this.systemd.getProperty(instance.serviceName, 'MainPID');
                         if (pid === '0')
                             pid = undefined;
+                        if (pid) {
+                            processUsage = await this.getProcessUsage(pid);
+                        }
                     }
                     catch (e) { /* ignore */ }
                 }
-                return { ...instance, running, pid, broken, brokenReason };
+                return { ...instance, running, pid, broken, brokenReason, ...processUsage };
             }
             catch {
                 return { ...instance, running: false, broken, brokenReason };
@@ -213,8 +236,6 @@ class InstanceManager {
                 continue;
             if (inst.gamePort === gamePort)
                 conflicts.push(`Game port ${gamePort} is already in use by instance '${inst.name}'.`);
-            if (inst.rconPort === rconPort)
-                conflicts.push(`RCON port ${rconPort} is already in use by instance '${inst.name}'.`);
             if (inst.gamePort === rconPort)
                 conflicts.push(`RCON port ${rconPort} conflicts with game port of instance '${inst.name}'.`);
             if (inst.rconPort === gamePort)
@@ -222,36 +243,85 @@ class InstanceManager {
         }
         return conflicts;
     }
+    async getRunningPortConflicts(gamePort, rconPort, excludeInstanceId) {
+        const instances = await this.listInstances();
+        const conflicts = [];
+        for (const inst of instances) {
+            if (inst.id === excludeInstanceId)
+                continue;
+            if (!inst.running)
+                continue;
+            if (inst.gamePort === gamePort) {
+                conflicts.push(`No se puede iniciar porque la instancia '${inst.name}' ya usa el puerto de juego ${gamePort}.`);
+            }
+            if (inst.gamePort === rconPort) {
+                conflicts.push(`No se puede iniciar porque el puerto RCON ${rconPort} choca con el puerto de juego de '${inst.name}'.`);
+            }
+            if (inst.rconPort === gamePort) {
+                conflicts.push(`No se puede iniciar porque el puerto de juego ${gamePort} choca con el puerto RCON de '${inst.name}'.`);
+            }
+        }
+        return conflicts;
+    }
     async createInstanceFromVersion(branchId, name, gamePort, rconPort, force = false, allowUnknownBranch = false, taskId) {
         const id = (0, instanceName_1.sanitizeInstanceName)(name).toLowerCase();
         if (!id)
-            throw new errors_1.ValidationError('Invalid instance name');
+            throw new errors_1.ValidationError('Nombre de instancia inválido / Invalid instance name');
         if (await this.repository.exists(id)) {
-            throw new errors_1.ValidationError(`Instance with ID ${id} already exists`);
-        }
-        if (!force) {
-            const conflicts = await this.checkPortConflicts(gamePort, rconPort);
-            if (conflicts.length > 0) {
-                throw new errors_1.PortConflictError(conflicts);
-            }
+            throw new errors_1.ValidationError(`La instancia con ID ${id} ya existe / Instance with ID ${id} already exists`);
         }
         const serviceName = (0, instanceName_1.getServiceName)(name);
         const pzDir = `/opt/pzserver-${id}`;
-        const pzName = `pz${id}`;
+        const pzName = `pzserver-${id}`;
+        const newInstance = {
+            id,
+            name,
+            description: `Instancia basada en rama ${branchId}`,
+            version: branchId,
+            serviceName,
+            pzDir,
+            pzName,
+            logPath: `${pzDir}/logs/server.log`,
+            maintenanceLogPath: `${pzDir}/logs/maintenance.log`,
+            iniPath: `/home/pzadmin/Zomboid/Server/${pzName}.ini`,
+            savePath: `/home/pzadmin/Zomboid/Saves/Multiplayer/${pzName}`,
+            db: `/home/pzadmin/Zomboid/db/${pzName}.db`,
+            rconPort,
+            gamePort,
+            isActive: false,
+            isLocked: false,
+            installationTaskId: taskId,
+            installationStatus: taskId ? 'running' : undefined,
+            installationLastError: undefined,
+            shutdownReason: taskId ? 'installation_pending' : undefined,
+        };
+        // Persist placeholder early so failed installs can be retried later.
+        const existingInstances = await this.repository.readAll();
+        if (!existingInstances.some((inst) => inst.id === id)) {
+            existingInstances.push(newInstance);
+            await this.repository.writeAll(existingInstances);
+        }
         const resolvedBranch = await (0, steamcmd_service_1.resolveBranchById)(branchId, { allowUnknown: allowUnknownBranch });
         const steamCmdInfo = await (0, steamcmd_service_1.resolveSteamCmdPath)();
+        const conflictWarnings = await this.checkPortConflicts(gamePort, rconPort);
         console.info(`[instances.create] branchId=${branchId}`);
         console.info(`[instances.create] resolvedSteamBranch=${resolvedBranch.steamBranch || '(public)'}`);
         console.info(`[instances.create] installPath=${pzDir}`);
         console.info(`[instances.create] serviceName=${serviceName}`);
         console.info(`[instances.create] steamcmdPath=${steamCmdInfo.path}`);
         console.info(`[instances.create] steamcmdExists=${steamCmdInfo.exists} steamcmdExecutable=${steamCmdInfo.executable}`);
+        if (conflictWarnings.length > 0) {
+            console.warn(`[instances.create] Port warnings for ${name}: ${conflictWarnings.join(' | ')}`);
+            if (taskId) {
+                task_manager_1.taskManager.addLog(taskId, `[warn] ${conflictWarnings.join(' | ')}`);
+            }
+        }
         if (taskId)
             task_manager_1.taskManager.addLog(taskId, `[instances.create] SteamCMD path resolved: ${steamCmdInfo.path}`);
         if (!steamCmdInfo.exists || !steamCmdInfo.executable) {
             if (taskId)
-                task_manager_1.taskManager.updateTaskStatus(taskId, 'failed', 0, 'SteamCMD is not installed or executable at the configured path.');
-            throw new errors_1.AppError('SteamCMD is not installed or executable at the configured path.', 'STEAMCMD_NOT_FOUND', 500);
+                task_manager_1.taskManager.updateTaskStatus(taskId, 'failed', 0, 'SteamCMD no está instalado o no es ejecutable en la ruta configurada / SteamCMD is not installed or executable at the configured path.');
+            throw new errors_1.AppError('SteamCMD no está instalado o no es ejecutable en la ruta configurada / SteamCMD is not installed or executable at the configured path.', 'STEAMCMD_NOT_FOUND', 500);
         }
         try {
             if (taskId)
@@ -310,43 +380,35 @@ class InstanceManager {
                         if (taskId)
                             task_manager_1.taskManager.addLog(taskId, `[instances.create] setup failed details: ${details}`);
                         if (combinedOutput.includes('permission denied') || combinedOutput.includes('a password is required') || combinedOutput.includes('sudo:')) {
-                            reject(new errors_1.AppError('Permission denied while creating instance. Verify sudoers and filesystem permissions.', 'PERMISSION_DENIED', 403));
+                            reject(new errors_1.AppError('Permiso denegado al crear la instancia. Verifica sudoers y permisos del sistema de archivos / Permission denied while creating instance. Verify sudoers and filesystem permissions.', 'PERMISSION_DENIED', 403));
                         }
                         else {
-                            reject(new errors_1.AppError(`SteamCMD installation failed for branch '${branchId}' (exit code ${code}). ${details}`, 'INSTALL_FAILED', 500));
+                            reject(new errors_1.AppError(`La instalación con SteamCMD falló para la rama '${branchId}' (código ${code}). ${details}`, 'INSTALL_FAILED', 500));
                         }
                     }
                 });
                 child.on('error', (err) => {
-                    reject(new errors_1.AppError(`Failed to start setup script: ${err.message}`, 'INSTALL_FAILED', 500));
+                    reject(new errors_1.AppError(`No se pudo iniciar el script de instalación / Failed to start setup script: ${err.message}`, 'INSTALL_FAILED', 500));
                 });
             });
         }
         catch (error) {
+            await this.updateInstance(id, {
+                installationTaskId: taskId,
+                installationStatus: 'failed',
+                installationLastError: error.message,
+                shutdownReason: 'installation_failed'
+            });
             if (taskId)
                 task_manager_1.taskManager.updateTaskStatus(taskId, 'failed', undefined, error.message);
             throw error;
         }
-        const newInstance = {
-            id,
-            name,
-            description: `Instancia basada en rama ${branchId}`,
-            version: branchId,
-            serviceName,
-            pzDir,
-            pzName,
-            logPath: `${pzDir}/logs/server.log`,
-            maintenanceLogPath: `${pzDir}/logs/maintenance.log`,
-            iniPath: `/home/pzadmin/Zomboid/Server/${pzName}.ini`,
-            savePath: `/home/pzadmin/Zomboid/Saves/Multiplayer/${pzName}`,
-            db: `/home/pzadmin/Zomboid/db/${pzName}.db`,
-            rconPort,
-            gamePort,
-            isActive: false
-        };
-        const instances = await this.repository.readAll();
-        instances.push(newInstance);
-        await this.repository.writeAll(instances);
+        await this.updateInstance(id, {
+            installationTaskId: taskId,
+            installationStatus: taskId ? 'success' : undefined,
+            installationLastError: undefined,
+            shutdownReason: undefined
+        });
         if (taskId) {
             task_manager_1.taskManager.addLog(taskId, `Instance registered successfully.`);
             task_manager_1.taskManager.setTaskResult(taskId, newInstance);
@@ -358,13 +420,13 @@ class InstanceManager {
             await fs.access(pathDir);
         }
         catch {
-            throw new errors_1.ValidationError(`Directory ${pathDir} is not accessible`);
+            throw new errors_1.ValidationError(`El directorio ${pathDir} no es accesible / Directory ${pathDir} is not accessible`);
         }
         const id = (0, instanceName_1.sanitizeInstanceName)(name).toLowerCase();
         if (!id)
-            throw new errors_1.ValidationError('Invalid instance name');
+            throw new errors_1.ValidationError('Nombre de instancia inválido / Invalid instance name');
         if (await this.repository.exists(id)) {
-            throw new errors_1.ValidationError(`Instance with ID ${id} already exists`);
+            throw new errors_1.ValidationError(`La instancia con ID ${id} ya existe / Instance with ID ${id} already exists`);
         }
         let detectedPzName = customPzName;
         if (!detectedPzName && customIniPath) {
@@ -373,7 +435,7 @@ class InstanceManager {
         if (!detectedPzName) {
             detectedPzName = await this.detectPzNameFromStartup(pathDir);
         }
-        const pzName = detectedPzName || `pz${id}`;
+        const pzName = detectedPzName || `pzserver-${id}`;
         let resolvedGamePort = gamePort;
         let resolvedRconPort = rconPort;
         const iniPath = customIniPath || `/home/pzadmin/Zomboid/Server/${pzName}.ini`;
@@ -389,7 +451,7 @@ class InstanceManager {
         if (!force) {
             const conflicts = await this.checkPortConflicts(resolvedGamePort, resolvedRconPort);
             if (conflicts.length > 0) {
-                throw new errors_1.PortConflictError(conflicts);
+                throw new errors_1.PortConflictError(conflicts.map((conflict) => conflict.replace(/^/, '')));
             }
         }
         const resolvedServiceName = serviceName?.trim() || (0, instanceName_1.getServiceName)(name);
@@ -409,12 +471,112 @@ class InstanceManager {
             db: customDbPath || `/home/pzadmin/Zomboid/db/${pzName}.db`,
             rconPort: resolvedRconPort,
             gamePort: resolvedGamePort,
-            isActive: false
+            isActive: false,
+            isLocked: false
         };
         const instances = await this.repository.readAll();
         instances.push(newInstance);
         await this.repository.writeAll(instances);
         return newInstance;
+    }
+    async retryInstanceInstallation(instanceId, taskId) {
+        const instances = await this.listInstances();
+        const listedInstance = instances.find((item) => item.id === instanceId);
+        if (!listedInstance) {
+            throw new errors_1.NotFoundError(`Instance with ID ${instanceId} not found`);
+        }
+        if (listedInstance.running) {
+            throw new errors_1.AppError('Retry installation is not allowed while the instance is running.', 'RETRY_NOT_ALLOWED', 409);
+        }
+        const hasFailedInstall = listedInstance.installationStatus === 'failed' || listedInstance.shutdownReason === 'installation_failed';
+        const isBroken = Boolean(listedInstance.broken);
+        if (!hasFailedInstall && !isBroken) {
+            throw new errors_1.AppError('Retry installation is only allowed for failed or broken instances.', 'RETRY_NOT_ALLOWED', 409);
+        }
+        const instance = await this.getInstance(instanceId);
+        const branchId = instance.version || 'public';
+        const resolvedBranch = await (0, steamcmd_service_1.resolveBranchById)(branchId, { allowUnknown: true });
+        const steamCmdInfo = await (0, steamcmd_service_1.resolveSteamCmdPath)();
+        await this.updateInstance(instanceId, {
+            installationTaskId: taskId,
+            installationStatus: taskId ? 'running' : undefined,
+            installationLastError: undefined,
+            shutdownReason: 'installation_retry'
+        });
+        try {
+            if (taskId)
+                task_manager_1.taskManager.addLog(taskId, `[instances.retry] Re-running installation for ${instance.name}...`);
+            if (taskId)
+                task_manager_1.taskManager.updateTaskStatus(taskId, 'running', 10);
+            await new Promise((resolve, reject) => {
+                const child = (0, child_process_1.spawn)('sudo', [
+                    '-n',
+                    'bash',
+                    path.join(paths_1.PZWEBADMIN_ROOT, 'scripts/setup-instance-steamcmd.sh'),
+                    branchId,
+                    resolvedBranch.steamBranch,
+                    instance.name,
+                    String(instance.gamePort),
+                    String(instance.rconPort),
+                    steamCmdInfo.path
+                ], {
+                    env: {
+                        ...process.env,
+                        PZ_TEMPLATE_DIR: env_1.config.pzDir
+                    }
+                });
+                let outputBuffer = '';
+                let errorBuffer = '';
+                child.stdout.on('data', (data) => {
+                    const str = data.toString();
+                    outputBuffer += str;
+                    if (taskId) {
+                        str.split('\n').filter(Boolean).forEach((line) => task_manager_1.taskManager.addLog(taskId, line));
+                    }
+                });
+                child.stderr.on('data', (data) => {
+                    const str = data.toString();
+                    errorBuffer += str;
+                    if (taskId) {
+                        str.split('\n').filter(Boolean).forEach((line) => task_manager_1.taskManager.addLog(taskId, `ERROR: ${line}`));
+                    }
+                });
+                child.on('close', (code) => {
+                    if (code === 0) {
+                        resolve();
+                    }
+                    else {
+                        const details = summarizeSetupOutput(errorBuffer, outputBuffer);
+                        reject(new errors_1.AppError(`La reinstalación falló para '${branchId}' (código ${code}). ${details}`, 'INSTALL_FAILED', 500));
+                    }
+                });
+                child.on('error', (err) => {
+                    reject(new errors_1.AppError(`No se pudo iniciar el script de reinstalación: ${err.message}`, 'INSTALL_FAILED', 500));
+                });
+            });
+            await this.updateInstance(instanceId, {
+                installationTaskId: taskId,
+                installationStatus: taskId ? 'success' : undefined,
+                installationLastError: undefined,
+                shutdownReason: undefined
+            });
+        }
+        catch (error) {
+            await this.updateInstance(instanceId, {
+                installationTaskId: taskId,
+                installationStatus: 'failed',
+                installationLastError: error.message,
+                shutdownReason: 'installation_failed'
+            });
+            if (taskId)
+                task_manager_1.taskManager.updateTaskStatus(taskId, 'failed', undefined, error.message);
+            throw error;
+        }
+        const refreshed = await this.getInstance(instanceId);
+        if (taskId) {
+            task_manager_1.taskManager.setTaskResult(taskId, refreshed);
+        }
+        return refreshed;
     }
     async updateInstance(instanceId, updates) {
         const instances = await this.repository.readAll();
@@ -434,6 +596,10 @@ class InstanceManager {
     async performSystemdAction(instanceId, action) {
         const instance = await this.getInstance(instanceId);
         if (action === 'start') {
+            const portConflicts = await this.getRunningPortConflicts(instance.gamePort, instance.rconPort, instanceId);
+            if (portConflicts.length > 0) {
+                throw new errors_1.PortConflictError(portConflicts);
+            }
             await this.updateInstance(instanceId, { shutdownReason: undefined });
         }
         else if (action === 'stop') {
@@ -552,6 +718,9 @@ class InstanceManager {
             if (force)
                 return; // If forcing and not found, we're good
             throw new errors_1.NotFoundError(`Instance with ID ${instanceId} not found`);
+        }
+        if (instance.isLocked) {
+            throw new errors_1.AppError('Instance is locked and cannot be deleted until unlocked.', 'INSTANCE_LOCKED', 423);
         }
         // 1. Stop instance if running
         try {

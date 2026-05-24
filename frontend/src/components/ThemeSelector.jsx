@@ -35,6 +35,12 @@ const ThemeSelector = ({ isOpen, onClose }) => {
     { key: 'sidebar-item-active-text', label: 'Sidebar Item Active Text' }
   ];
 
+  const getColorLabel = (key, fallback) => {
+    const translationKey = `themeSelector.colors.${key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())}`;
+    const translated = t(translationKey);
+    return translated === translationKey ? fallback : translated;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -62,14 +68,13 @@ const ThemeSelector = ({ isOpen, onClose }) => {
                 <button
                   key={themeOption.id}
                   onClick={() => updateSettings({ theme: themeOption.id })}
-                  className={`p-4 rounded border-2 text-left transition-all ${settings.theme === themeOption.id
-                    ? 'border-primary bg-primary bg-opacity-10 text-primary'
-                    : 'border-border bg-surface hover:border-muted text-text'
-                    }`}
+                  className={`theme-option settings-theme-selector-option ${settings.theme === themeOption.id ? 'theme-option-active' : 'theme-option-inactive'}`}
                 >
-                  <div className="font-bold text-primary">{themeOption.name}</div>
-                  <div className="text-xs opacity-70 mt-1">
-                    {themeOption.id === 'custom' ? t('settings.createColors') : t('settings.predefinedPalette')}
+                  <div className="font-bold settings-theme-selector-title">
+                    {themeOption.name}
+                  </div>
+                  <div className="text-xs mt-1 settings-theme-selector-subtitle">
+                    {themeOption.id === 'custom' ? t('themeSelector.createColors') : t('themeSelector.predefinedPalette')}
                   </div>
                 </button>
               ))}
@@ -105,7 +110,7 @@ const ThemeSelector = ({ isOpen, onClose }) => {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {colorKeys.map(({ key, label }) => (
                       <div key={key} className="flex flex-col">
-                        <label className="text-xs text-muted mb-1">{label}</label>
+                        <label className="text-xs text-muted mb-1">{getColorLabel(key, label)}</label>
                         <div className="flex items-center gap-2">
                           <input
                             type="color"

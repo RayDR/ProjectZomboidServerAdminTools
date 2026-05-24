@@ -201,7 +201,7 @@ const Mods = () => {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-terminal-text text-shadow-terminal font-zombie mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-text text-shadow-terminal font-title mb-2">
             <GlitchText>{t('mods.title')}</GlitchText>
           </h1>
           <p className="text-zombie-green text-sm sm:text-base">
@@ -254,8 +254,8 @@ const Mods = () => {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-terminal-text opacity-70 uppercase tracking-wide">{t('mods.workshop')}</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-terminal-text mt-1">
+              <p className="text-sm text-text opacity-70 uppercase tracking-wide">{t('mods.workshop')}</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-text mt-1">
                 {mods.filter(m => m.workshopId).length}
               </h3>
             </div>
@@ -268,8 +268,8 @@ const Mods = () => {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-terminal-text opacity-70 uppercase tracking-wide">{t('mods.status')}</p>
-              <h3 className="text-lg font-bold text-terminal-text mt-1">
+              <p className="text-sm text-text opacity-70 uppercase tracking-wide">{t('mods.status')}</p>
+              <h3 className="text-lg font-bold text-text mt-1">
                 {validation ? (
                   <span className={validation.invalid.length > 0 ? 'text-zombie-blood' : 'text-zombie-green'}>
                     {validation.valid} / {validation.valid + validation.invalid.length}
@@ -305,7 +305,7 @@ const Mods = () => {
                 <div className="flex items-center space-x-3">
                   <FaCheckCircle className="text-zombie-green text-xl" />
                   <div>
-                    <p className="font-bold text-terminal-text">{mod.id}</p>
+                    <p className="font-bold text-text">{mod.id}</p>
                     {mod.workshopId && (
                       <p className="text-xs text-gray-400">Workshop ID: {mod.workshopId}</p>
                     )}
@@ -341,7 +341,7 @@ const Mods = () => {
 
       {/* Mods List */}
       <Card>
-        <h2 className="text-2xl font-bold text-terminal-text mb-4 flex items-center">
+        <h2 className="text-2xl font-bold text-text mb-4 flex items-center">
           <FaPuzzlePiece className="mr-2" /> {t('mods.installed')} ({filteredMods.length})
         </h2>
         
@@ -376,7 +376,7 @@ const Mods = () => {
                       className="border-b border-gray-700 hover:bg-zombie-gray-dark transition-colors"
                     >
                       <td className="p-3">
-                        <div className="font-mono text-terminal-text font-bold text-sm">
+                        <div className="font-mono text-text font-bold text-sm">
                           {mod.id}
                         </div>
                         <div className="text-xs text-gray-500 md:hidden mt-1">
@@ -477,7 +477,7 @@ const Mods = () => {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <FaUpload className="text-4xl text-zombie-green mx-auto mb-3" />
-                <p className="text-terminal-text font-bold mb-1">
+                <p className="text-text font-bold mb-1">
                   {isDragging ? 'Suelta los archivos aquí' : 'Arrastra archivos o haz clic'}
                 </p>
                 <p className="text-xs text-gray-400">
@@ -503,7 +503,7 @@ const Mods = () => {
                       key={index}
                       className="flex items-center justify-between bg-zombie-gray-dark p-2 rounded"
                     >
-                      <span className="text-sm text-terminal-text truncate flex-1">
+                      <span className="text-sm text-text truncate flex-1">
                         📄 {file.name}
                       </span>
                       <Button
@@ -553,7 +553,7 @@ const Mods = () => {
         >
           <div className="space-y-4">
             <div className="bg-zombie-warning bg-opacity-10 border border-zombie-warning rounded-lg p-4">
-              <p className="text-terminal-text mb-3">
+              <p className="text-text mb-3">
                 ✅ El mod se instaló correctamente. Para que los cambios surtan efecto, se recomienda reiniciar el servidor.
               </p>
               <p className="text-sm text-gray-400">
@@ -583,7 +583,7 @@ const Mods = () => {
         >
           <div className="space-y-4">
             <div className="bg-zombie-blood bg-opacity-10 border border-zombie-blood rounded-lg p-4">
-              <p className="text-terminal-text mb-3">
+              <p className="text-text mb-3">
                 ⚠️ Esta acción actualizará TODOS los mods del servidor desde Steam Workshop.
               </p>
               <p className="text-sm text-gray-400 mb-2">
